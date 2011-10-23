@@ -50,7 +50,7 @@
             <h:messages id="errors" errorClass="error"/>
             <h:inputText id="name" value="#{addressController.name}" label="Name" required="true"/>
             <h:inputText id="street" value="#{addressController.street}" label="Street"/>
-            <h:commandButton value="Store address >>" action="#{addressController.store}">
+            <h:commandButton value="Store address >>" action="#{addressController.storeAddress}">
                <f:ajax execute="name" render="errors result cached-values-title cached-values"/>
             </h:commandButton>
             <h:commandButton value="Remove address >>" action="#{addressController.removeAddress}">

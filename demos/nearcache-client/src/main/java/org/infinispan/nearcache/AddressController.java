@@ -22,6 +22,7 @@ package org.infinispan.nearcache;
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
+import javax.inject.Named;
 
 /**
  * // TODO: Document this
@@ -30,6 +31,7 @@ import javax.inject.Inject;
  * @since // TODO
  */
 @RequestScoped
+@Named
 public class AddressController {
 
    @Inject
