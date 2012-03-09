@@ -63,10 +63,12 @@ abstract class AbstractProtocolDecoder[K, V <: CacheValue](transport: NettyTrans
       val ch = ctx.getChannel
       try {
          if (isTrace) // To aid debugging
-            trace("Decode using instance @%x", System.identityHashCode(this))
+            trace("Decode from channel %s using instance @%x",
+                  ch, System.identityHashCode(this))
+
          state match {
-            case DECODE_HEADER => decodeHeader(ch, buffer, state)
-            case DECODE_KEY => decodeKey(ch, buffer, state)
+            case DECODE_HEADER => decodeHeader(ctx, buffer, state)
+            case DECODE_KEY => decodeKey(ctx, buffer, state)
             case DECODE_PARAMETERS => decodeParameters(ch, buffer, state)
             case DECODE_VALUE => decodeValue(ch, buffer, state)
          }
@@ -87,7 +89,7 @@ abstract class AbstractProtocolDecoder[K, V <: CacheValue](transport: NettyTrans
       }
    }
 
-   private def decodeHeader(ch: Channel, buffer: ChannelBuffer, state: DecoderState): AnyRef = {
+   private def decodeHeader(ctx: ChannelHandlerContext, buffer: ChannelBuffer, state: DecoderState): AnyRef = {
       header = createHeader
       val endOfOp = readHeader(buffer, header)
       if (endOfOp == None) {
@@ -96,18 +98,19 @@ abstract class AbstractProtocolDecoder[K, V <: CacheValue](transport: NettyTrans
          return null
       }
 
-      cache = getCache
+      cache = getCache(ctx)
       if (endOfOp.get) {
          header.op match {
-            case StatsRequest => writeResponse(ch, createStatsResponse)
-            case _ => customDecodeHeader(ch, buffer)
+            case StatsRequest => writeResponse(ctx.getChannel, createStatsResponse)
+            case _ => customDecodeHeader(ctx, buffer)
          }
       } else {
          checkpointTo(DECODE_KEY)
       }
    }
 
-   private def decodeKey(ch: Channel, buffer: ChannelBuffer, state: DecoderState): AnyRef = {
+   private def decodeKey(ctx: ChannelHandlerContext, buffer: ChannelBuffer, state: DecoderState): AnyRef = {
+      val ch = ctx.getChannel
       header.op match {
          // Get, put and remove are the most typical operations, so they're first
          case GetRequest => writeResponse(ch, get(buffer))
@@ -116,7 +119,7 @@ abstract class AbstractProtocolDecoder[K, V <: CacheValue](transport: NettyTrans
          case GetWithVersionRequest => writeResponse(ch, get(buffer))
          case PutIfAbsentRequest | ReplaceRequest | ReplaceIfUnmodifiedRequest =>
             handleModification(ch, buffer)
-         case _ => customDecodeKey(ch, buffer)
+         case _ => customDecodeKey(ctx, buffer)
       }
    }
 
@@ -282,7 +285,7 @@ abstract class AbstractProtocolDecoder[K, V <: CacheValue](transport: NettyTrans
    }
 
    override def channelOpen(ctx: ChannelHandlerContext, e: ChannelStateEvent) {
-      transport.acceptedChannels.add(e.getChannel)
+      transport.addAcceptedChannel(e.getChannel)
       super.channelOpen(ctx, e)
    }
 
@@ -295,7 +298,7 @@ abstract class AbstractProtocolDecoder[K, V <: CacheValue](transport: NettyTrans
 
    protected def readHeader(b: ChannelBuffer, header: SuitableHeader): Option[Boolean]
 
-   protected def getCache: Cache[K, V]
+   protected def getCache(ctx: ChannelHandlerContext): Cache[K, V]
 
    /**
     * Returns the key read along with a boolean indicating whether the
@@ -325,9 +328,9 @@ abstract class AbstractProtocolDecoder[K, V <: CacheValue](transport: NettyTrans
 
    protected def createStatsResponse: AnyRef
 
-   protected def customDecodeHeader(ch: Channel, buffer: ChannelBuffer): AnyRef
+   protected def customDecodeHeader(ctx: ChannelHandlerContext, buffer: ChannelBuffer): AnyRef
 
-   protected def customDecodeKey(ch: Channel, buffer: ChannelBuffer): AnyRef
+   protected def customDecodeKey(ctx: ChannelHandlerContext, buffer: ChannelBuffer): AnyRef
 
    protected def customDecodeValue(ch: Channel, buffer: ChannelBuffer): AnyRef
 

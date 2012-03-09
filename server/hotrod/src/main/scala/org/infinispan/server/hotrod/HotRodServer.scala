@@ -65,6 +65,14 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
    private val knownCaches : java.util.Map[String, Cache[ByteArrayKey, CacheValue]] = ConcurrentMapFactory.makeConcurrentMap(4, 0.9f, 16)
    private val isTrace = isTraceEnabled
 
+//   // TODO: Use delta aware sequence?
+//   private var listenerRegistry: Cache[String, Seq[ListenerSubscription]] = _
+//   private var source: Cache[String, Seq[ListenerSubscription]] = _
+
+//   private var listenerRegistry = Cache[String, Seq[ListenerSubscription]]
+
+//   private var listenerReg: Cache[CacheEvent, AtomicMap[ListenerKey, Option[ByteArrayKey]]] = _
+
    def getAddress: ServerAddress = address
 
    def getViewId: Int = viewId
@@ -105,6 +113,9 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
 
          addSelfToTopologyView(externalHost, externalPort, cacheManager)
       }
+
+//      // TODO: Do clustered...
+//      listenerReg = cacheManager.getCache()
    }
 
    override def startTransport(idleTimeout: Int, tcpNoDelay: Boolean,
@@ -264,5 +275,10 @@ object HotRodServer {
 
    val ADDRESS_CACHE_NAME = "___hotRodTopologyCache"
    val DEFAULT_VIEW_ID = -1
+
+   def getCacheInstance(cacheName: String, cacheManager: EmbeddedCacheManager): Cache[ByteArrayKey, CacheValue] = {
+      if (cacheName.isEmpty) cacheManager.getCache[ByteArrayKey, CacheValue]
+      else cacheManager.getCache(cacheName)
+   }   
 
 }

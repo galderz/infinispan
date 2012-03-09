@@ -61,7 +61,8 @@ abstract class HotRodSingleNodeTest extends SingleCacheManagerTest {
       hotRodClient = connectClient
    }
 
-   protected def createTestCacheManager: EmbeddedCacheManager = TestCacheManagerFactory.createLocalCacheManager(true)
+   protected def createTestCacheManager: EmbeddedCacheManager =
+      TestCacheManagerFactory.createLocalCacheManager(false)
 
    protected def createStartHotRodServer(cacheManager: EmbeddedCacheManager) = startHotRodServer(cacheManager)
 

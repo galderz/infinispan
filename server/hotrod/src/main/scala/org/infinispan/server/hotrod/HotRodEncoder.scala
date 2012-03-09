@@ -31,6 +31,8 @@ import org.jboss.netty.channel.Channel
 import org.infinispan.server.core.transport.ExtendedChannelBuffer._
 import org.infinispan.remoting.transport.Address
 import org.infinispan.util.Util
+import Constants._
+import HotRodServer._
 
 /**
  * Hot Rod specific encoder.
@@ -39,7 +41,7 @@ import org.infinispan.util.Util
  * @since 4.1
  */
 class HotRodEncoder(cacheManager: EmbeddedCacheManager, server: HotRodServer)
-        extends OneToOneEncoder with Constants with Log {
+        extends OneToOneEncoder with Log {
 
    private lazy val isClustered: Boolean = cacheManager.getGlobalConfiguration.getTransportClass != null
    private lazy val addressCache: Cache[Address, ServerAddress] =
@@ -55,11 +57,13 @@ class HotRodEncoder(cacheManager: EmbeddedCacheManager, server: HotRodServer)
       val encoder = r.version match {
          case VERSION_10 => Encoders.Encoder10
          case VERSION_11 => Encoders.Encoder11
-         case 0 => Encoders.Encoder11
+         case VERSION_20 => Encoders.Encoder20
+         case 0 => Encoders.Encoder20
       }
 
       r.version match {
-         case VERSION_10 | VERSION_11 => encoder.writeHeader(r, buf, addressCache, server)
+         case VERSION_10 | VERSION_11 | VERSION_20 =>
+            encoder.writeHeader(r, buf, addressCache, server)
          // if error before reading version, don't send any topology changes
          // cos the encoding might vary from one version to the other
          case 0 => encoder.writeHeader(r, buf, null, null)

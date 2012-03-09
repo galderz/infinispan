@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as
@@ -17,21 +17,33 @@
  * 02110-1301 USA
  */
 
-package org.infinispan.server.hotrod
+package org.infinispan.server.hotrod.test
 
 /**
- * Constant values
+ * // TODO: Document this
+ *
+ * // TODO: Remove
  *
  * @author Galder Zamarreño
- * @since 5.1
+ * @since // TODO
  */
-object Constants {
+object Closeable {
 
-   val MAGIC_REQ = 0xA0
-   val MAGIC_RES = 0xA1
-   val VERSION_10: Byte = 10
-   val VERSION_11: Byte = 11
-   val VERSION_20: Byte = 20
-   val DEFAULT_HASH_FUNCTION_VERSION: Byte = 2
+   def use[T <: {def close() : Unit}](closable: T)(block: T => Unit) {
+      try {
+         block(closable)
+      } finally {
+         closable.close()
+      }
+   }
+
+
+   def use[T <: {def close() : Unit}](closables: T*)(block: Seq[T] => Unit) {
+      try {
+         block(closables)
+      } finally {
+         closables.foreach(_.close())
+      }
+   }
 
 }

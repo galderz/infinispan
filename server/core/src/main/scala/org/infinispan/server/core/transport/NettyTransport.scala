@@ -25,17 +25,18 @@ package org.infinispan.server.core.transport
 import org.jboss.netty.channel.group.DefaultChannelGroup
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory
 import org.jboss.netty.bootstrap.ServerBootstrap
-import java.util.concurrent.Executors
 import scala.collection.JavaConversions._
 import org.infinispan.server.core.ProtocolServer
-import org.infinispan.util.Util
 import org.jboss.netty.util.{ThreadNameDeterminer, ThreadRenamingRunnable}
 import org.jboss.netty.logging.{InternalLoggerFactory, Log4JLoggerFactory}
 import org.infinispan.server.core.logging.Log
 import java.util.concurrent.atomic.AtomicLong
-import org.jboss.netty.channel.{WriteCompletionEvent, MessageEvent, ChannelDownstreamHandler}
 import org.jboss.netty.buffer.ChannelBuffer
 import java.net.{InetSocketAddress}
+import org.jboss.netty.channel.{Channel, WriteCompletionEvent, MessageEvent, ChannelDownstreamHandler}
+import org.infinispan.util.concurrent.ConcurrentMapFactory
+import org.infinispan.util.{ByteArrayKey, Util}
+import java.util.concurrent.{ConcurrentMap, Executors}
 
 /**
  * A Netty based transport.
@@ -50,7 +51,7 @@ class NettyTransport(server: ProtocolServer, encoder: ChannelDownstreamHandler,
         extends Transport with Log {
 
    private val serverChannels = new DefaultChannelGroup(threadNamePrefix + "-Channels")
-   val acceptedChannels = new DefaultChannelGroup(threadNamePrefix + "-Accepted")
+   private val acceptedChannels = new DefaultChannelGroup(threadNamePrefix + "-Accepted")
    private val pipeline =
       if (idleTimeout > 0)
          new TimeoutEnabledChannelPipelineFactory(server, encoder, this, idleTimeout)
@@ -64,6 +65,9 @@ class NettyTransport(server: ProtocolServer, encoder: ChannelDownstreamHandler,
    private val totalBytesWritten, totalBytesRead = new AtomicLong
    private val userBytesWritten, userBytesRead = new AtomicLong
    private val isTrace = isTraceEnabled
+
+   private val channelSrcIds: ConcurrentMap[ByteArrayKey, Int]  =
+      ConcurrentMapFactory.makeConcurrentMap();
 
    override def start {
       ThreadRenamingRunnable.setThreadNameDeterminer(new ThreadNameDeterminer {
@@ -98,17 +102,6 @@ class NettyTransport(server: ProtocolServer, encoder: ChannelDownstreamHandler,
       serverChannels.add(ch)
    }
    
-   private def isLog4jAvailable(): Boolean = {
-      try {
-         Util.loadClassStrict("org.apache.log4j.Logger", Thread.currentThread().getContextClassLoader)
-         return true;
-      }
-      catch {
-        case cnfe: ClassNotFoundException => return false
-      }
-      return false
-   }
-
    override def stop {
       // We *pause* the acceptor so no new connections are made
       var future = serverChannels.unbind().awaitUninterruptibly();
@@ -135,6 +128,33 @@ class NettyTransport(server: ProtocolServer, encoder: ChannelDownstreamHandler,
       pipeline.stop
       if (isDebugEnabled) debug("Channel group completely closed, release external resources");
       factory.releaseExternalResources();
+   }
+
+   def addAcceptedChannel(ch: Channel) {
+      if (isTraceEnabled) trace("Add accepted channel %s to %s", ch, this)
+      acceptedChannels.add(ch)
+   }
+
+   def addChannelSourceId(srcId: ByteArrayKey, chId: Int) {
+      if (isTraceEnabled) trace("Source id for channel 0x%x is %s", chId, srcId)
+      channelSrcIds.put(srcId, chId)
+   }
+
+   def getChannelSource(srcId: ByteArrayKey): Channel = {
+      if (isTraceEnabled) trace("Find source %s in transport %s", srcId, this)
+      acceptedChannels.find(channelSrcIds.get(srcId))
+   }
+
+
+   private def isLog4jAvailable(): Boolean = {
+      try {
+         Util.loadClassStrict("org.apache.log4j.Logger", Thread.currentThread().getContextClassLoader)
+         return true;
+      }
+      catch {
+         case cnfe: ClassNotFoundException => return false
+      }
+      return false
    }
 
    override def getTotalBytesWritten: String = totalBytesWritten.toString

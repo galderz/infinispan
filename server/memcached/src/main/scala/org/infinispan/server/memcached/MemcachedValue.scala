@@ -42,9 +42,8 @@ import java.lang.StringBuilder
  * @author Galder Zamarreño
  * @since 4.1
  */
-@serializable
 class MemcachedValue(override val data: Array[Byte], override val version: Long, val flags: Long)
-      extends CacheValue(data, version) {
+      extends CacheValue(data, version) with Serializable {
 
    override def toString = {
       new StringBuilder().append("MemcachedValue").append("{")

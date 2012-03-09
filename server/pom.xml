@@ -50,6 +50,12 @@
       </dependency>
 
       <dependency>
+         <groupId>org.scalatest</groupId>
+         <artifactId>scalatest_2.9.0</artifactId>
+         <version>${version.scala.test}</version>
+      </dependency>
+
+      <dependency>
          <groupId>${project.groupId}</groupId>
          <artifactId>infinispan-core</artifactId>
          <version>${project.version}</version>

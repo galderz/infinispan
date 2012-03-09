@@ -30,6 +30,7 @@ import OperationStatus._
 import org.infinispan.util.ByteArrayKey
 import org.infinispan.server.core.CacheValue
 import org.infinispan.configuration.cache.Configuration
+import Constants._
 
 /**
  * Hot Rod encoder for protocol version 1.1
@@ -37,17 +38,17 @@ import org.infinispan.configuration.cache.Configuration
  * @author Galder Zamarreño
  * @since 5.1
  */
-abstract class AbstractEncoder1x extends AbstractVersionedEncoder with Constants with Log {
+abstract class AbstractEncoder10 extends AbstractVersionedEncoder with Log {
 
    import HotRodServer._
 
    override def writeHeader(r: Response, buf: ChannelBuffer,
            addressCache: Cache[Address, ServerAddress], server: HotRodServer) {
       val topologyResp = getTopologyResponse(r, addressCache, server)
-      buf.writeByte(MAGIC_RES.byteValue)
+      buf.writeByte(MAGIC_RES)
       writeUnsignedLong(r.messageId, buf)
-      buf.writeByte(r.operation.id.byteValue)
-      buf.writeByte(r.status.id.byteValue)
+      buf.writeByte(r.operation.id)
+      buf.writeByte(r.status.id)
       if (topologyResp != null) {
          topologyResp match {
             case t: TopologyAwareResponse => {

@@ -35,7 +35,7 @@ import org.jboss.netty.channel.ChannelFuture
 @Test(groups = Array("functional"), testName = "server.hotrod.HotRodShutdownTest")
 class HotRodShutdownTest extends HotRodSingleNodeTest {
 
-   override protected def shutdownClient: ChannelFuture = null
+   override protected def shutdownClient = null
 
    def testPutBasic(m: Method) {
       client.assertPut(m)

@@ -36,7 +36,6 @@ import collection.mutable
 import collection.immutable
 import java.lang.reflect.Method
 import HotRodTestingUtil._
-import java.util.concurrent.{ConcurrentHashMap, Executors}
 import java.util.concurrent.atomic.{AtomicLong}
 import mutable.ListBuffer
 import org.infinispan.test.TestingUtil
@@ -46,6 +45,9 @@ import org.jboss.netty.handler.codec.replay.{VoidEnum, ReplayingDecoder}
 import org.infinispan.server.hotrod._
 import java.lang.IllegalStateException
 import java.lang.StringBuilder
+import v2.Operation2xResponse
+import Operation2xResponse._
+import java.util.concurrent.{TimeUnit, ArrayBlockingQueue, ConcurrentHashMap, Executors}
 
 /**
  * A very simply Hot Rod client for testing purpouses. It's a quick and dirty client implementation done for testing
@@ -59,7 +61,8 @@ import java.lang.StringBuilder
  * @since 4.1
  */
 class HotRodClient(host: String, port: Int, defaultCacheName: String, rspTimeoutSeconds: Int, protocolVersion: Byte) extends Log {
-   val idToOp = new ConcurrentHashMap[Long, Op]    
+   val idToOp = new ConcurrentHashMap[Long, Op]
+   var handler: ClientHandler = _
 
    private lazy val ch: Channel = {
       val factory = new NioClientSocketChannelFactory(Executors.newCachedThreadPool, Executors.newCachedThreadPool)
@@ -72,10 +75,11 @@ class HotRodClient(host: String, port: Int, defaultCacheName: String, rspTimeout
       // Wait until the connection is made successfully.
       val ch = connectFuture.awaitUninterruptibly.getChannel
       assertTrue(connectFuture.isSuccess)
+      handler = ch.getPipeline.getLast.asInstanceOf[ClientHandler]
       ch
    }
    
-   def stop = ch.disconnect
+   def stop: ChannelFuture = ch.disconnect
 
    def put(k: Array[Byte], lifespan: Int, maxIdle: Int, v: Array[Byte]): TestResponse =
       execute(0xA0, 0x01, defaultCacheName, k, lifespan, maxIdle, v, 0, 1 ,0)
@@ -167,12 +171,12 @@ class HotRodClient(host: String, port: Int, defaultCacheName: String, rspTimeout
 
    private def execute(op: Op, expectedResponseMessageId: Long): TestResponse = {
       writeOp(op)
-      val handler = ch.getPipeline.getLast.asInstanceOf[ClientHandler]
       handler.getResponse(expectedResponseMessageId)
    }
 
    private def writeOp(op: Op) {
       idToOp.put(op.id, op)
+      trace("Client writes %s to channel %s", op, ch)
       val future = ch.write(op)
       future.awaitUninterruptibly
       assertTrue(future.isSuccess)
@@ -197,7 +201,6 @@ class HotRodClient(host: String, port: Int, defaultCacheName: String, rspTimeout
       val op = new Op(0xA0, protocolVersion, code, defaultCacheName, k, 0, 0, null, flags, 0, 1, 0)
       val writeFuture = writeOp(op)
       // Get the handler instance to retrieve the answer.
-      val handler = ch.getPipeline.getLast.asInstanceOf[ClientHandler]
       if (code == 0x03 || code == 0x11 || code == 0x0F) {
          handler.getResponse(op.id)
       } else {
@@ -211,7 +214,6 @@ class HotRodClient(host: String, port: Int, defaultCacheName: String, rspTimeout
       val op = new StatsOp(0xA0, protocolVersion, 0x15, defaultCacheName, 1, 0, null)
       val writeFuture = writeOp(op)
       // Get the handler instance to retrieve the answer.
-      val handler = ch.getPipeline.getLast.asInstanceOf[ClientHandler]
       val resp = handler.getResponse(op.id).asInstanceOf[TestStatsResponse]
       resp.stats
    }
@@ -227,9 +229,46 @@ class HotRodClient(host: String, port: Int, defaultCacheName: String, rspTimeout
       val op = new BulkGetOp(0xA0, protocolVersion, 0x19, defaultCacheName, 1, 0, count)
       val writeFuture = writeOp(op)
       // Get the handler instance to retrieve the answer.
-      val handler = ch.getPipeline.getLast.asInstanceOf[ClientHandler]
       handler.getResponse(op.id).asInstanceOf[TestBulkGetResponse]
    }
+
+   def popEventNotification(timeout: Int): Option[TestEventNotificationResponse] = {
+      val resp = handler.getResponse(0, timeout)
+      if (resp == null) None
+      else Some(resp.asInstanceOf[TestEventNotificationResponse])
+   }
+
+   def popEventNotification(): Option[TestEventNotificationResponse] =
+      popEventNotification(60)
+
+   // 2.0 operation
+   def addEventListener(listenerId: Int, eventInterest: Int, k: Array[Byte]): TestResponse = {
+      val op = new AddEventListenerOp(0xA0, protocolVersion, 0x1B,
+            defaultCacheName, 1, 0, listenerId, eventInterest, k)
+      writeOp(op)
+      handler.getResponse(op.id)
+   }
+
+   // 2.0 operation
+   def addEventListener(listenerId: Int, eventInterest: Int): TestResponse =
+      addEventListener(listenerId, eventInterest, Array())
+
+   // 2.0 operation
+   def removeEventListener(listenerId: Int): TestResponse = {
+      val op = new RemoveEventListenerOp(0xA0, protocolVersion, 0x1D,
+            defaultCacheName, 1, 0, listenerId)
+      writeOp(op)
+      handler.getResponse(op.id)
+   }
+
+   // 2.0 operation
+   def ping(appId: Array[Byte]): TestResponse = {
+      val op = new Ping2xOp(0xA0, protocolVersion, 0x17, defaultCacheName, 1, 0, appId)
+      writeOp(op)
+      handler.getResponse(op.id)
+   }
+
+
 }
 
 private class ClientPipelineFactory(client: HotRodClient, rspTimeoutSeconds: Int) extends ChannelPipelineFactory {
@@ -272,23 +311,64 @@ private class Encoder extends OneToOneEncoder {
             buffer.writeByte(op.clientIntel) // client intelligence
             writeUnsignedInt(op.topologyId, buffer) // topology id
             writeRangedBytes(new Array[Byte](0), buffer)
-            if (op.code != 0x13 && op.code != 0x15 && op.code != 0x17 && op.code != 0x19) { // if it's a key based op...
-               writeRangedBytes(op.key, buffer) // key length + key
-               if (op.value != null) {
-                  if (op.code != 0x0D) { // If it's not removeIfUnmodified...
-                     writeUnsignedInt(op.lifespan, buffer) // lifespan
-                     writeUnsignedInt(op.maxIdle, buffer) // maxIdle
-                  }
-                  if (op.code == 0x09 || op.code == 0x0D) {
-                     buffer.writeLong(op.dataVersion)
-                  }
-                  if (op.code != 0x0D) { // If it's not removeIfUnmodified...
-                     writeRangedBytes(op.value, buffer) // value length + value
+            op.code match {
+               case 0x01 | 0x03 | 0x05 | 0x07 | 0x09 | 0x0B | 0x0D | 0x0F | 0x11 => {
+                  writeRangedBytes(op.key, buffer) // key length + key
+                  if (op.value != null) {
+                     if (op.code != 0x0D) { // If it's not removeIfUnmodified...
+                        writeUnsignedInt(op.lifespan, buffer) // lifespan
+                        writeUnsignedInt(op.maxIdle, buffer) // maxIdle
+                     }
+                     if (op.code == 0x09 || op.code == 0x0D) {
+                        buffer.writeLong(op.dataVersion)
+                     }
+                     if (op.code != 0x0D) { // If it's not removeIfUnmodified...
+                        writeRangedBytes(op.value, buffer) // value length + value
+                     }
                   }
                }
-            } else if (op.code == 0x19) {
-               writeUnsignedInt(op.asInstanceOf[BulkGetOp].count, buffer) // Entry count
+               case 0x19 => writeUnsignedInt(op.asInstanceOf[BulkGetOp].count, buffer) // Entry count
+               case 0x1B => {
+                  val addListener = op.asInstanceOf[AddEventListenerOp]
+                  writeUnsignedInt(addListener.listenerId, buffer)
+                  writeUnsignedInt(addListener.eventInterest, buffer)
+                  if (!op.key.isEmpty) {
+                     buffer.writeByte(0) // Key granularity
+                     writeRangedBytes(op.key, buffer)
+                  } else {
+                     buffer.writeByte(1) // Cache granularity
+                  }
+               }
+               case 0x1D => {
+                  val removeListener = op.asInstanceOf[RemoveEventListenerOp]
+                  writeUnsignedInt(removeListener.listenerId, buffer)
+               }
+               case 0x17 => {
+                  op match {
+                     case op: Ping2xOp => writeRangedBytes(op.appId, buffer)
+                     case _ => // no-op
+                  }
+               } 
             }
+
+
+//            if (op.code != 0x13 && op.code != 0x15 && op.code != 0x17 && op.code != 0x19) { // if it's a key based op...
+//               writeRangedBytes(op.key, buffer) // key length + key
+//               if (op.value != null) {
+//                  if (op.code != 0x0D) { // If it's not removeIfUnmodified...
+//                     writeUnsignedInt(op.lifespan, buffer) // lifespan
+//                     writeUnsignedInt(op.maxIdle, buffer) // maxIdle
+//                  }
+//                  if (op.code == 0x09 || op.code == 0x0D) {
+//                     buffer.writeLong(op.dataVersion)
+//                  }
+//                  if (op.code != 0x0D) { // If it's not removeIfUnmodified...
+//                     writeRangedBytes(op.value, buffer) // value length + value
+//                  }
+//               }
+//            } else if (op.code == 0x19) {
+//               writeUnsignedInt(op.asInstanceOf[BulkGetOp].count, buffer) // Entry count
+//            }
             buffer
          }
       }
@@ -306,7 +386,7 @@ private class Decoder(client: HotRodClient) extends ReplayingDecoder[VoidEnum] w
       trace("Decode response from server")
       buf.readUnsignedByte // magic byte
       val id = readUnsignedLong(buf)
-      val opCode = OperationResponse.apply(buf.readUnsignedByte)
+      val opCode = buf.readUnsignedByte
       val status = OperationStatus.apply(buf.readUnsignedByte)
       val topologyChangeMarker = buf.readUnsignedByte
       val op = client.idToOp.get(id)
@@ -333,43 +413,6 @@ private class Decoder(client: HotRodClient) extends ReplayingDecoder[VoidEnum] w
                   case 11 => read11HashDistAwareHeader(buf, topologyId,
                         numOwners, hashFunction, hashSpace, numServersInTopo)
                }
-
-//               // The exact number of topology addresses in the list is unknown
-//               // until we loop through the entire list and we figure out how
-//               // hash ids are per HotRod server (i.e. num virtual nodes > 1)
-//               val members = new ListBuffer[ServerAddress]()
-//               val allHashIds = mutable.Map.empty[ServerAddress, Seq[Int]]
-//               var hashIdsOfAddr = new ListBuffer[Int]()
-//               var prevNode: ServerAddress = null
-//               for (i <- 1 to numServersInTopo) {
-//                  val node = new ServerAddress(readString(buf), readUnsignedShort(buf))
-//                  val hashId = buf.readInt
-//                  if (prevNode == null || node == prevNode) {
-//                     // First time node has been seen, so cache it
-//                     if (prevNode == null)
-//                        prevNode = node
-//
-//                     // Add current hash id to list
-//                     hashIdsOfAddr += hashId
-//                  } else {
-//                     // A new node has been detected, so create the topology
-//                     // address and store it in the view
-//                     allHashIds += (prevNode -> hashIdsOfAddr)
-//                     members += prevNode
-//                     prevNode = node
-//                     hashIdsOfAddr = new ListBuffer[Int]()
-//                     hashIdsOfAddr += hashId
-//                  }
-//                  // Check for last server hash in which case just add it
-//                  if (i == numServersInTopo) {
-//                     allHashIds += (prevNode -> hashIdsOfAddr)
-//                     members += prevNode
-//                  }
-//
-//               }
-//               Some(TestHashDistAware10Response(topologyId, members.toList,
-//                     immutable.Map[ServerAddress, Seq[Int]]() ++ allHashIds,
-//                     numOwners, hashFunction, hashSpace))
             } else {
                None // Is it possible?
             }
@@ -377,7 +420,7 @@ private class Decoder(client: HotRodClient) extends ReplayingDecoder[VoidEnum] w
             None
          }
       val resp: Response = opCode match {
-         case StatsResponse => {
+         case 0x16 => { // Stats response
             val size = readUnsignedInt(buf)
             val stats = mutable.Map.empty[String, String]
             for (i <- 1 to size) {
@@ -386,51 +429,56 @@ private class Decoder(client: HotRodClient) extends ReplayingDecoder[VoidEnum] w
             new TestStatsResponse(op.version, id, op.cacheName, op.clientIntel,
                   immutable.Map[String, String]() ++ stats, op.topologyId, topologyChangeResponse)
          }
-         case PutResponse | PutIfAbsentResponse | ReplaceResponse | ReplaceIfUnmodifiedResponse
-              | RemoveResponse | RemoveIfUnmodifiedResponse => {
+         case 0x02 | 0x06 | 0x08 | 0x0A | 0x0C | 0x0E => {
+            // put, putIfAbsent, replace, replaceIfUnmodified, remove, removeIfUnmodified
+            val opRsp = OperationResponse.apply(opCode)
             if (op.flags == 1) {
                val length = readUnsignedInt(buf)
                if (length == 0) {
                   new TestResponseWithPrevious(op.version, id, op.cacheName,
-                        op.clientIntel, opCode, status, op.topologyId, None,
+                        op.clientIntel, opRsp, status, op.topologyId, None,
                         topologyChangeResponse)
                } else {
                   val previous = new Array[Byte](length)
                   buf.readBytes(previous)
                   new TestResponseWithPrevious(op.version, id, op.cacheName,
-                     op.clientIntel, opCode, status, op.topologyId, Some(previous),
+                     op.clientIntel, opRsp, status, op.topologyId, Some(previous),
                      topologyChangeResponse)
                }
             } else new TestResponse(op.version, id, op.cacheName, op.clientIntel,
-                     opCode, status, op.topologyId, topologyChangeResponse)
+                              opRsp, status, op.topologyId, topologyChangeResponse)
          }
-         case ContainsKeyResponse | ClearResponse | PingResponse =>
-            new TestResponse(op.version, id, op.cacheName, op.clientIntel, opCode,
-                  status, op.topologyId, topologyChangeResponse)
-         case GetWithVersionResponse  => {
+         case 0x10 | 0x14 | 0x18 =>
+            // containsKey, clear, ping
+            new TestResponse(op.version, id, op.cacheName, op.clientIntel,
+                  OperationResponse.apply(opCode), status, op.topologyId,
+                  topologyChangeResponse)
+         case 0x12 => { // getWithVersion
+            val opRsp = OperationResponse.apply(opCode)
             if (status == Success) {
                val version = buf.readLong
                val data = Some(readRangedBytes(buf))
                new TestGetWithVersionResponse(op.version, id, op.cacheName,
-                  op.clientIntel, opCode, status, op.topologyId, data, version,
+                  op.clientIntel, opRsp, status, op.topologyId, data, version,
                   topologyChangeResponse)
             } else{
                new TestGetWithVersionResponse(op.version, id, op.cacheName,
-                     op.clientIntel, opCode, status, op.topologyId, None, 0,
+                     op.clientIntel, opRsp, status, op.topologyId, None, 0,
                      topologyChangeResponse)
             }
          }
-         case GetResponse => {
+         case 0x04 => { // get
+            val opRsp = OperationResponse.apply(opCode)
             if (status == Success) {
                val data = Some(readRangedBytes(buf))
                new TestGetResponse(op.version, id, op.cacheName, op.clientIntel,
-                     opCode, status, op.topologyId, data, topologyChangeResponse)
+                     opRsp, status, op.topologyId, data, topologyChangeResponse)
             } else{
                new TestGetResponse(op.version, id, op.cacheName, op.clientIntel,
-                     opCode, status, op.topologyId, None, topologyChangeResponse)
+                     opRsp, status, op.topologyId, None, topologyChangeResponse)
             }
          }
-         case BulkGetResponse => {
+         case 0x1A => { // bulkGet
             var done = buf.readByte
             val bulkBuffer = mutable.Map.empty[ByteArrayKey, Array[Byte]]
             while (done == 1) {
@@ -441,7 +489,7 @@ private class Decoder(client: HotRodClient) extends ReplayingDecoder[VoidEnum] w
             new TestBulkGetResponse(op.version, id, op.cacheName, op.clientIntel,
                   bulk, op.topologyId, topologyChangeResponse)
          }
-         case ErrorResponse => {
+         case 0x50 => { // error
             if (op == null)
                new TestErrorResponse(10, id, "", 0, status, 0,
                      readString(buf), topologyChangeResponse)
@@ -449,7 +497,20 @@ private class Decoder(client: HotRodClient) extends ReplayingDecoder[VoidEnum] w
                new TestErrorResponse(op.version, id, op.cacheName, op.clientIntel,
                      status, op.topologyId, readString(buf), topologyChangeResponse)
          }
-
+         case 0x1C => { // addListener
+            new TestResponse(op.version, id, op.cacheName, op.clientIntel,
+                  Operation2xResponse.apply(opCode), status, op.topologyId,
+                  topologyChangeResponse)
+         }
+         case 0x1E => { // removeListener
+            new TestResponse(op.version, id, op.cacheName, op.clientIntel,
+               Operation2xResponse.apply(opCode), status, op.topologyId,
+               topologyChangeResponse)
+         }
+         case 0x51 => { // eventNotification
+            new TestEventNotificationResponse(
+               id, readUnsignedInt(buf), buf.readByte(), readRangedBytes(buf))
+         }
       }
       trace("Got response from server: %s", resp)
       resp
@@ -514,29 +575,44 @@ private class Decoder(client: HotRodClient) extends ReplayingDecoder[VoidEnum] w
 
 }
 
-private class ClientHandler(rspTimeoutSeconds: Int) extends SimpleChannelUpstreamHandler {
+class ClientHandler(rspTimeoutSeconds: Int) extends SimpleChannelUpstreamHandler {
 
    private val responses = new ConcurrentHashMap[Long, TestResponse]
+   private val notifications = new ArrayBlockingQueue[TestResponse](20)
 
    override def messageReceived(ctx: ChannelHandlerContext, e: MessageEvent) {
       val resp = e.getMessage.asInstanceOf[TestResponse]
       trace("Put %s in responses", resp)
-      responses.put(resp.messageId, resp)
+      resp.messageId match {
+         case 0 => notifications.offer(resp)
+         case _ => responses.put(resp.messageId, resp)
+      }
    }
 
-   def getResponse(messageId: Long): TestResponse = {
-      // TODO: Very very primitive way of waiting for a response. Convert to a Future
-      var i = 0;
-      var v: TestResponse = null;
-      do {
-         v = responses.get(messageId)
-         if (v == null) {
-            TestingUtil.sleepThread(100)
-            i += 1
+   def getResponse(messageId: Long): TestResponse =
+      getResponse(messageId, rspTimeoutSeconds)
+
+   def getResponse(messageId: Long, waitTimeoutSeconds: Long): TestResponse = {
+      messageId match {
+         case 0 => notifications.poll(waitTimeoutSeconds, TimeUnit.SECONDS)
+         case _ => {
+            // TODO: Very very primitive way of waiting for a response. Convert to a Future
+            var i = 0;
+            var v: TestResponse = null;
+            do {
+               v = responses.get(messageId)
+               if (v == null) {
+                  TestingUtil.sleepThread(100)
+                  i += 1
+               }
+            }
+            while (v == null && i < (waitTimeoutSeconds * 10))
+            // After retrieving the response, remote it from the pending responses
+            responses.remove(messageId)
+            v
          }
       }
-      while (v == null && i < (rspTimeoutSeconds * 10))
-      v
+
    }
 
 }
@@ -609,6 +685,39 @@ class BulkGetOp(override val magic: Int,
      extends Op(magic, version, code, cacheName, null, 0, 0, null, 0, 0,
                 clientIntel, topologyId)
 
+class AddEventListenerOp(override val magic: Int,
+        override val version: Byte,
+        override val code: Byte,
+        override val cacheName: String,
+        override val clientIntel: Byte,
+        override val topologyId: Int,
+        val listenerId: Int, val eventInterest: Int, override val key: Array[Byte])
+     extends Op(magic, version, code, cacheName, key, 0, 0, null, 0, 0,
+                clientIntel, topologyId)
+
+class RemoveEventListenerOp(override val magic: Int,
+        override val version: Byte,
+        override val code: Byte,
+        override val cacheName: String,
+        override val clientIntel: Byte,
+        override val topologyId: Int,
+        val listenerId: Int)
+        extends Op(magic, version, code, cacheName, null, 0, 0, null, 0, 0,
+           clientIntel, topologyId)
+
+class Ping2xOp(override val magic: Int,
+        override val version: Byte,
+        override val code: Byte,
+        override val cacheName: String,
+        override val clientIntel: Byte,
+        override val topologyId: Int, val appId: Array[Byte])
+        extends Op(magic, version, code, cacheName, null, 0, 0, null, 0, 0,
+                   clientIntel, topologyId) {
+   override def toString =
+      super.toString + "(" +
+         (if (value == null) "null" else Util.printArray(value, true)) + ")"
+}
+
 class TestResponse(override val version: Byte, override val messageId: Long,
                    override val cacheName: String, override val clientIntel: Short,
                    override val operation: OperationResponse,
@@ -677,6 +786,10 @@ class TestBulkGetResponse(override val version: Byte, override val messageId: Lo
                           val bulkData: Map[ByteArrayKey, Array[Byte]],
                           override val topologyId: Int, override val topologyResponse: Option[AbstractTopologyResponse])
       extends TestResponse(version, messageId, cacheName, clientIntel, BulkGetResponse, Success, topologyId, topologyResponse)
+
+class TestEventNotificationResponse(override val messageId: Long,
+            val listenerId: Int, val event: Byte, val key: Array[Byte])
+      extends TestResponse(20, messageId, "", 0, EventResponse, Success, 0, None)
 
 case class ServerNode(val host: String, val port: Int)
 

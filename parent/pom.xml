@@ -166,6 +166,8 @@
       <version.rhq>4.2.0</version.rhq>
       <version.scala>2.9.2</version.scala>
       <version.slf4j>1.6.4</version.slf4j>
+      <version.scala.test>1.6.1</version.scala.test>
+      <version.slf4j>1.6.1</version.slf4j>
       <version.solder>3.1.0.Final</version.solder>
       <version.spring>3.1.0.RELEASE</version.spring>
       <version.spymemcached>2.5</version.spymemcached>

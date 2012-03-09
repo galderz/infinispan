@@ -28,13 +28,16 @@ import org.infinispan.util.ByteArrayKey
 import org.jboss.netty.buffer.ChannelBuffer
 import org.infinispan.server.core.{RequestParameters, CacheValue}
 import org.infinispan.server.core.transport.NettyTransport
+import org.jboss.netty.channel.{ChannelHandlerContext, Channel}
+import org.infinispan.manager.EmbeddedCacheManager
 
 /**
  * This class represents the work to be done by a decoder of a particular Hot Rod protocol version.
  *
  * @author Galder Zamarreño
  * @since 4.1
- */   
+ */
+// TODO: Convert to trait??
 abstract class AbstractVersionedDecoder {
 
    /**
@@ -80,12 +83,16 @@ abstract class AbstractVersionedDecoder {
    /**
     * Handle a protocol specific header reading.
     */
-   def customReadHeader(header: HotRodHeader, buffer: ChannelBuffer, cache: Cache[ByteArrayKey, CacheValue]): AnyRef
+   def customReadHeader(header: HotRodHeader, buffer: ChannelBuffer,
+           cache: Cache[ByteArrayKey, CacheValue], ctx: ChannelHandlerContext,
+           transport: NettyTransport): AnyRef
 
    /**
     * Handle a protocol specific key reading.
     */
-   def customReadKey(header: HotRodHeader, buffer: ChannelBuffer, cache: Cache[ByteArrayKey, CacheValue]): AnyRef
+   def customReadKey(header: HotRodHeader, buffer: ChannelBuffer,
+           cache: Cache[ByteArrayKey, CacheValue], ctx: ChannelHandlerContext,
+           transport: NettyTransport): AnyRef
 
    /**
     * Handle a protocol specific value reading.
@@ -106,4 +113,15 @@ abstract class AbstractVersionedDecoder {
     * Get an optimized cache instance depending on the operation parameters.
     */
    def getOptimizedCache(h: HotRodHeader, c: Cache[ByteArrayKey, CacheValue]): Cache[ByteArrayKey, CacheValue]
+
+   /**
+    *
+    * @param name
+    * @param cm
+    * @param ctx
+    * @return
+    */
+   def getCache(name: String, cm: EmbeddedCacheManager,
+           ctx: ChannelHandlerContext): Cache[ByteArrayKey, CacheValue]
+
 }

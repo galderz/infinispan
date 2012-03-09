@@ -22,6 +22,7 @@ package org.infinispan.server.core.test
 import org.infinispan.manager.EmbeddedCacheManager
 import org.infinispan.test.TestingUtil
 import org.infinispan.server.core.AbstractProtocolServer
+import org.jboss.netty.channel.ChannelFuture
 
 /**
  * // TODO: Document this
@@ -49,6 +50,22 @@ object Stoppable {
          block(stoppable)
       } finally {
          ServerTestingUtil.killServer(stoppable)
+      }
+   }
+
+   def useStoppable[T <: {def stop : ChannelFuture}](stoppable: T)(block: T => Unit) {
+      try {
+         block(stoppable)
+      } finally {
+         stoppable.stop
+      }
+   }
+
+   def useStoppables[T <: {def stop : ChannelFuture}](stoppables: T*)(block: Seq[T] => Unit) {
+      try {
+         block(stoppables)
+      } finally {
+         stoppables.foreach(_.stop)
       }
    }
 

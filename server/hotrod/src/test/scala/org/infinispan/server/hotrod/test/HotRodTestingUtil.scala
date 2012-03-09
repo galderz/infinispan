@@ -41,6 +41,7 @@ import collection.mutable.ListBuffer
 import org.jboss.netty.channel.ChannelFuture
 import org.infinispan.configuration.cache.ConfigurationBuilder
 import scala.Byte
+import test.ScalaTestAssertions._
 
 /**
  * Test utils for Hot Rod tests.
@@ -244,6 +245,20 @@ object HotRodTestingUtil extends Log {
    def assertTopologyId(viewId: Int, cm: EmbeddedCacheManager) {
       assertEquals(viewId, cm.getCache(HotRodServer.ADDRESS_CACHE_NAME)
               .getAdvancedCache.getRpcManager.getTransport.getViewId)
+   }
+
+   def assertNotification(client: HotRodClient,
+           expListenerId: Int, expEvent: Int, expKey: Array[Byte]) {
+      val r = client.popEventNotification()
+      assert(r.get != null)
+      assert(r.get.listenerId === expListenerId)
+      assert(r.get.event === expEvent)
+      assert(r.get.key === expKey)
+   }
+
+   def assertNotificationNotReceived(client: HotRodClient) {
+      // TODO: Find quicker way to know when server will not send a notification
+      assert(client.popEventNotification(5).isEmpty)
    }
 
    def getAddressCacheRemovalLatches(servers: List[HotRodServer]): Seq[CountDownLatch] = {

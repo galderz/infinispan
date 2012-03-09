@@ -33,8 +33,8 @@ import org.infinispan.Cache
 import org.infinispan.util.ByteArrayKey
 import java.io.{IOException, StreamCorruptedException}
 import org.jboss.netty.buffer.ChannelBuffer
-import org.jboss.netty.channel.Channel
 import java.lang.StringBuilder
+import org.jboss.netty.channel.{ChannelHandlerContext, Channel}
 
 /**
  * Top level Hot Rod decoder that after figuring out the version, delegates the rest of the reading to the
@@ -44,7 +44,10 @@ import java.lang.StringBuilder
  * @since 4.1
  */
 class HotRodDecoder(cacheManager: EmbeddedCacheManager, transport: NettyTransport, server: HotRodServer)
-        extends AbstractProtocolDecoder[ByteArrayKey, CacheValue](transport) with Constants {
+        extends AbstractProtocolDecoder[ByteArrayKey, CacheValue](transport) {
+   import HotRodServer._
+   import Constants._
+   
    type SuitableHeader = HotRodHeader
 
    type SuitableParameters = RequestParameters
@@ -77,9 +80,10 @@ class HotRodDecoder(cacheManager: EmbeddedCacheManager, transport: NettyTranspor
 
       try {
          val decoder = version match {
-            case VERSION_10 | VERSION_11 => Decoder10
+            case VERSION_10 | VERSION_11 => Decoders.Decoder10
+            case VERSION_20 => Decoders.Decoder20
             case _ => throw new UnknownVersionException(
-               "Unknown version:" + version, version, messageId)
+               "Unknown version: " + version, version, messageId)
          }
          val endOfOp = decoder.readHeader(buffer, version, messageId, header)
          if (isTrace) trace("Decoded header %s", header)
@@ -98,7 +102,7 @@ class HotRodDecoder(cacheManager: EmbeddedCacheManager, transport: NettyTranspor
       }
    }
 
-   override def getCache: Cache[ByteArrayKey, CacheValue] = {
+   override def getCache(ctx: ChannelHandlerContext): Cache[ByteArrayKey, CacheValue] = {
       val cacheName = header.cacheName
       // Talking to the wrong cache are really request parsing errors
       // and hence should be treated as client errors
@@ -153,11 +157,14 @@ class HotRodDecoder(cacheManager: EmbeddedCacheManager, transport: NettyTranspor
    override def createMultiGetResponse(pairs: Map[ByteArrayKey, CacheValue]): AnyRef =
       null // Unsupported
 
-   override protected def customDecodeHeader(ch: Channel, buffer: ChannelBuffer): AnyRef =
-      writeResponse(ch, header.decoder.customReadHeader(header, buffer, cache))
+   override protected def customDecodeHeader(ctx: ChannelHandlerContext, buffer: ChannelBuffer): AnyRef =
+      writeResponse(ctx.getChannel,
+            header.decoder.customReadHeader(header, buffer, cache, ctx, transport))
 
-   override protected def customDecodeKey(ch: Channel, buffer: ChannelBuffer): AnyRef =
-      writeResponse(ch, header.decoder.customReadKey(header, buffer, cache))
+   override protected def customDecodeKey(ctx: ChannelHandlerContext,
+           buffer: ChannelBuffer): AnyRef =
+      writeResponse(ctx.getChannel, header.decoder.customReadKey(
+            header, buffer, cache, ctx, transport))
 
    override protected def customDecodeValue(ch: Channel, buffer: ChannelBuffer): AnyRef =
       writeResponse(ch, header.decoder.customReadValue(header, buffer, cache))

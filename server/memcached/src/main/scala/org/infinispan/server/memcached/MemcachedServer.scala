@@ -28,6 +28,7 @@ import org.infinispan.manager.EmbeddedCacheManager
 import java.util.Properties
 import org.infinispan.config.Configuration
 import org.infinispan.Cache
+import org.jboss.netty.channel.ChannelPipeline
 
 /**
  * Memcached server defining its decoder/encoder settings. In fact, Memcached does not use an encoder since there's

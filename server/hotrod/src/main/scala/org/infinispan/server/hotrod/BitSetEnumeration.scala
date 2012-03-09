@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 Red Hat, Inc. and/or its affiliates.
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as
@@ -19,19 +19,19 @@
 
 package org.infinispan.server.hotrod
 
-/**
- * Constant values
- *
- * @author Galder Zamarreño
- * @since 5.1
- */
-object Constants {
+import collection.immutable.BitSet.BitSet1
 
-   val MAGIC_REQ = 0xA0
-   val MAGIC_RES = 0xA1
-   val VERSION_10: Byte = 10
-   val VERSION_11: Byte = 11
-   val VERSION_20: Byte = 20
-   val DEFAULT_HASH_FUNCTION_VERSION: Byte = 2
+/**
+ * // TODO: Document this
+ * @author Galder Zamarreño
+ * @since // TODO
+ */
+object BitSetEnumeration {
+
+   def toBitSet(vs: Enumeration#ValueSet): Long =
+      vs.foldLeft(0L){ (z,n) => (2L << n.id) + z }
+
+   def fromBitSet[T <: Enumeration](e: T, l: Long): T#ValueSet =
+      e.ValueSet.empty ++ (new BitSet1(l)).map(i => e(i))
 
 }

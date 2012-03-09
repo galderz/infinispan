@@ -27,6 +27,7 @@ import org.infinispan.remoting.transport.Address
 import org.infinispan.server.core.transport.ExtendedChannelBuffer._
 import collection.JavaConversions._
 import org.infinispan.server.hotrod.Encoders.Encoder10
+import Constants._
 
 /**
  * Hot Rod encoder for protocol version 1.1
@@ -34,7 +35,7 @@ import org.infinispan.server.hotrod.Encoders.Encoder10
  * @author Galder Zamarreño
  * @since 5.1
  */
-object Encoder11 extends AbstractVersionedEncoder with Constants with Log {
+object Encoder11 extends AbstractVersionedEncoder with Log {
 
    val encoder10 = Encoder10
 

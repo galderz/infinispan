@@ -79,7 +79,7 @@ trait MemcachedTestingUtil {
       val server = new MemcachedServer {
 
          override def getDecoder: MemcachedDecoder = {
-            var memcachedDecoder: MemcachedDecoder = new MemcachedDecoder(getCacheManager.getCache[String, MemcachedValue](cacheName), scheduler, transport)
+            val memcachedDecoder: MemcachedDecoder = new MemcachedDecoder(getCacheManager.getCache[String, MemcachedValue](cacheName), scheduler, transport)
             memcachedDecoder.versionGenerator = this.versionGenerator
             memcachedDecoder
          }

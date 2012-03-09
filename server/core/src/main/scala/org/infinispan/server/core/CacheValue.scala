@@ -44,8 +44,7 @@ import java.lang.StringBuilder
  * @author Galder Zamarreño
  * @since 4.1
  */
-@serializable
-class CacheValue(val data: Array[Byte], val version: Long) {
+class CacheValue(val data: Array[Byte], val version: Long) extends Serializable {
 
    override def toString = {
       new StringBuilder().append("CacheValue").append("{")

@@ -29,8 +29,10 @@ package org.infinispan.server.hotrod
  * @since 4.1
  */
 object OperationStatus extends Enumeration {
+
    type OperationStatus = Value
 
+   // 1.0, 1.1
    val Success = Value(0x00)
    val OperationNotExecuted = Value(0x01)
    val KeyDoesNotExist = Value(0x02)
@@ -41,5 +43,8 @@ object OperationStatus extends Enumeration {
    val ParseError = Value(0x84) // todo: test
    val ServerError = Value(0x85) // todo: test
    val OperationTimedOut = Value(0x86) // todo: test
+
+   // 2.0
+   val DuplicateListener = Value(0x87)
 
 }

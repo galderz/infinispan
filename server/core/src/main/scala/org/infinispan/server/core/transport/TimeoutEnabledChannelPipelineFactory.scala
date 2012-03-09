@@ -39,11 +39,7 @@ class TimeoutEnabledChannelPipelineFactory(server: ProtocolServer,
    import TimeoutEnabledChannelPipelineFactory._
 
    override def getPipeline: ChannelPipeline = {
-      val pipeline = Channels.pipeline
-      pipeline.addLast("decoder", server.getDecoder)
-      if (encoder != null)
-         pipeline.addLast("encoder", encoder)
-
+      val pipeline = super.getPipeline
       pipeline.addLast("idleHandler", new IdleStateHandler(timer, idleTimeout, 0, 0))
       pipeline.addLast("idleHandlerProvider", new IdleStateHandlerProvider)
       return pipeline;
