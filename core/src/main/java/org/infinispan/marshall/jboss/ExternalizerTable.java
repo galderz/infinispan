@@ -58,6 +58,7 @@ import org.infinispan.marshall.exts.MapExternalizer;
 import org.infinispan.marshall.exts.ReplicableCommandExternalizer;
 import org.infinispan.marshall.exts.SetExternalizer;
 import org.infinispan.marshall.exts.SingletonListExternalizer;
+import org.infinispan.marshall.exts.UnindexedReplicableCmdExternalizer;
 import org.infinispan.remoting.responses.ExceptionResponse;
 import org.infinispan.remoting.responses.ExtendedResponse;
 import org.infinispan.remoting.responses.RequestIgnoredResponse;
@@ -123,6 +124,8 @@ class ExternalizerTable implements ObjectTable {
 
    private volatile boolean started;
 
+   private RemoteCommandsFactory cmdFactory;
+
    private void initInternalExternalizers() {
       internalExternalizers.add(new ArrayListExternalizer());
       internalExternalizers.add(new LinkedListExternalizer());
@@ -179,6 +182,7 @@ class ExternalizerTable implements ObjectTable {
    }
 
    public void start(RemoteCommandsFactory cmdFactory, StreamingMarshaller ispnMarshaller, GlobalConfiguration globalCfg, ClassLoader appClassLoader) {
+      this.cmdFactory = cmdFactory;
       initInternalExternalizers();
       loadInternalMarshallables(cmdFactory, ispnMarshaller, appClassLoader);
       loadForeignMarshallables(globalCfg);
@@ -235,13 +239,46 @@ class ExternalizerTable implements ObjectTable {
                log.tracef("Check contents of read externalizers: %s", readers);
             }
 
-            throw new CacheException(String.format(
-                  "Type of data read is unknown. Id=%d is not amongst known reader indexes.",
-                  readerIndex));
+            adapter = checkForLegacyExternalizers(readerIndex);
+
+            if (adapter == null) {
+               throw new CacheException(String.format(
+                     "Type of data read is unknown. Id=%d is not amongst known reader indexes.",
+                     readerIndex));
+            }
          }
       }
 
       return adapter.readObject(input);
+   }
+
+   private ExternalizerAdapter checkForLegacyExternalizers(int readerIndex) {
+      switch (readerIndex) {
+         case Ids.FASTCOPY_HASH_MAP:
+            return readers.get(Ids.MAPS);
+         case Ids.STATE_TRANSFER_CONTROL_COMMAND:
+         case Ids.CLUSTERED_GET_COMMAND:
+         case Ids.MULTIPLE_RPC_COMMAND:
+         case Ids.SINGLE_RPC_COMMAND:
+         case Ids.GET_KEY_VALUE_COMMAND:
+         case Ids.PUT_KEY_VALUE_COMMAND:
+         case Ids.REMOVE_COMMAND:
+         case Ids.INVALIDATE_COMMAND:
+         case Ids.REPLACE_COMMAND:
+         case Ids.CLEAR_COMMAND:
+         case Ids.PUT_MAP_COMMAND:
+         case Ids.PREPARE_COMMAND:
+         case Ids.COMMIT_COMMAND:
+         case Ids.ROLLBACK_COMMAND:
+         case Ids.INVALIDATE_L1_COMMAND:
+         case Ids.LOCK_CONTROL_COMMAND:
+         case Ids.REHASH_CONTROL_COMMAND:
+         case Ids.JOIN_COMPLETE_COMMAND:
+            // No need to worry about object creation cost or GC
+            return new ExternalizerAdapter(
+               readerIndex, new UnindexedReplicableCmdExternalizer(cmdFactory));
+      }
+      return null;
    }
 
    boolean isMarshallableCandidate(Object o) {

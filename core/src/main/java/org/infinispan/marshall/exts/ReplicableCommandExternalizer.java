@@ -69,6 +69,7 @@ import java.util.Set;
  * @since 4.0
  */
 public class ReplicableCommandExternalizer extends AbstractExternalizer<ReplicableCommand> {
+
    private RemoteCommandsFactory cmdFactory;
    
    public void inject(RemoteCommandsFactory cmdFactory) {

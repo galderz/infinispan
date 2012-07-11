@@ -169,8 +169,8 @@ public class LockControlCommand extends AbstractTransactionBoundaryCommand imple
       globalTx = (GlobalTransaction) args[0];
       cacheName = (String) args[1];
       unlock = (Boolean) args[2];
-
       keys = (List<Object>) args[3];
+      flags = (Set<Flag>) args[4];
    }
 
    public boolean isUnlock() {

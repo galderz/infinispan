@@ -101,85 +101,85 @@ public class RemoteCommandsFactory {
     * @return a replicable command
     */
    public ReplicableCommand fromStream(byte id, Object[] parameters, byte type) {
-      ReplicableCommand command;
       if (type == 0) {
-         switch (id) {
-            case PutKeyValueCommand.COMMAND_ID:
-               command = new PutKeyValueCommand();
-               break;
-            case LockControlCommand.COMMAND_ID:
-               command = new LockControlCommand();
-               break;
-            case PutMapCommand.COMMAND_ID:
-               command = new PutMapCommand();
-               break;
-            case RemoveCommand.COMMAND_ID:
-               command = new RemoveCommand();
-               break;
-            case ReplaceCommand.COMMAND_ID:
-               command = new ReplaceCommand();
-               break;
-            case GetKeyValueCommand.COMMAND_ID:
-               command = new GetKeyValueCommand();
-               break;
-            case ClearCommand.COMMAND_ID:
-               command = new ClearCommand();
-               break;
-            case PrepareCommand.COMMAND_ID:
-               command = new PrepareCommand();
-               break;
-            case CommitCommand.COMMAND_ID:
-               command = new CommitCommand();
-               break;
-            case RollbackCommand.COMMAND_ID:
-               command = new RollbackCommand();
-               break;
-            case MultipleRpcCommand.COMMAND_ID:
-               command = new MultipleRpcCommand();
-               break;
-            case SingleRpcCommand.COMMAND_ID:
-               command = new SingleRpcCommand();
-               break;
-            case InvalidateCommand.COMMAND_ID:
-               command = new InvalidateCommand();
-               break;
-            case InvalidateL1Command.COMMAND_ID:
-               command = new InvalidateL1Command();
-               break;
-            case StateTransferControlCommand.COMMAND_ID:
-               command = new StateTransferControlCommand();
-               ((StateTransferControlCommand) command).init(transport);
-               break;
-            case ClusteredGetCommand.COMMAND_ID:
-               command = new ClusteredGetCommand();
-               break;
-            case RehashControlCommand.COMMAND_ID:
-               command = new RehashControlCommand(transport);
-               break;
-            case RemoveCacheCommand.COMMAND_ID:
-               command = new RemoveCacheCommand(cacheManager, registry);
-               break;
-            case RemoveRecoveryInfoCommand.COMMAND_ID:
-               command = new RemoveRecoveryInfoCommand();
-               break;
-            case GetInDoubtTransactionsCommand.COMMAND_ID:
-               command = new GetInDoubtTransactionsCommand();
-               break;
-            case MapReduceCommand.COMMAND_ID:
-               command = new MapReduceCommand();
-               break;
-            case DistributedExecuteCommand.COMMAND_ID:
-               command = new DistributedExecuteCommand<Object>();
-               break;
-            case GetInDoubtTxInfoCommand.COMMAND_ID:
-               command = new GetInDoubtTxInfoCommand();
-               break;
-            case CompleteTransactionCommand.COMMAND_ID:
-               command = new CompleteTransactionCommand();
-               break;
-            default:
-               throw new CacheException("Unknown command id " + id + "!");
-         }
+         return fromStream(id, parameters);
+//         switch (id) {
+//            case PutKeyValueCommand.COMMAND_ID:
+//               command = new PutKeyValueCommand();
+//               break;
+//            case LockControlCommand.COMMAND_ID:
+//               command = new LockControlCommand();
+//               break;
+//            case PutMapCommand.COMMAND_ID:
+//               command = new PutMapCommand();
+//               break;
+//            case RemoveCommand.COMMAND_ID:
+//               command = new RemoveCommand();
+//               break;
+//            case ReplaceCommand.COMMAND_ID:
+//               command = new ReplaceCommand();
+//               break;
+//            case GetKeyValueCommand.COMMAND_ID:
+//               command = new GetKeyValueCommand();
+//               break;
+//            case ClearCommand.COMMAND_ID:
+//               command = new ClearCommand();
+//               break;
+//            case PrepareCommand.COMMAND_ID:
+//               command = new PrepareCommand();
+//               break;
+//            case CommitCommand.COMMAND_ID:
+//               command = new CommitCommand();
+//               break;
+//            case RollbackCommand.COMMAND_ID:
+//               command = new RollbackCommand();
+//               break;
+//            case MultipleRpcCommand.COMMAND_ID:
+//               command = new MultipleRpcCommand();
+//               break;
+//            case SingleRpcCommand.COMMAND_ID:
+//               command = new SingleRpcCommand();
+//               break;
+//            case InvalidateCommand.COMMAND_ID:
+//               command = new InvalidateCommand();
+//               break;
+//            case InvalidateL1Command.COMMAND_ID:
+//               command = new InvalidateL1Command();
+//               break;
+//            case StateTransferControlCommand.COMMAND_ID:
+//               command = new StateTransferControlCommand();
+//               ((StateTransferControlCommand) command).init(transport);
+//               break;
+//            case ClusteredGetCommand.COMMAND_ID:
+//               command = new ClusteredGetCommand();
+//               break;
+//            case RehashControlCommand.COMMAND_ID:
+//               command = new RehashControlCommand(transport);
+//               break;
+//            case RemoveCacheCommand.COMMAND_ID:
+//               command = new RemoveCacheCommand(cacheManager, registry);
+//               break;
+//            case RemoveRecoveryInfoCommand.COMMAND_ID:
+//               command = new RemoveRecoveryInfoCommand();
+//               break;
+//            case GetInDoubtTransactionsCommand.COMMAND_ID:
+//               command = new GetInDoubtTransactionsCommand();
+//               break;
+//            case MapReduceCommand.COMMAND_ID:
+//               command = new MapReduceCommand();
+//               break;
+//            case DistributedExecuteCommand.COMMAND_ID:
+//               command = new DistributedExecuteCommand<Object>();
+//               break;
+//            case GetInDoubtTxInfoCommand.COMMAND_ID:
+//               command = new GetInDoubtTxInfoCommand();
+//               break;
+//            case CompleteTransactionCommand.COMMAND_ID:
+//               command = new CompleteTransactionCommand();
+//               break;
+//            default:
+//               throw new CacheException("Unknown command id " + id + "!");
+//         }
       } else {
          ModuleCommandFactory mcf = commandFactories.get(id);
          if (mcf != null)
@@ -187,7 +187,89 @@ public class RemoteCommandsFactory {
          else
             throw new CacheException("Unknown command id " + id + "!");
       }
+   }
+
+   @Deprecated public ReplicableCommand fromStream(byte id, Object[] parameters) {
+      ReplicableCommand command;
+      switch (id) {
+         case PutKeyValueCommand.COMMAND_ID:
+            command = new PutKeyValueCommand();
+            break;
+         case LockControlCommand.COMMAND_ID:
+            command = new LockControlCommand();
+            break;
+         case PutMapCommand.COMMAND_ID:
+            command = new PutMapCommand();
+            break;
+         case RemoveCommand.COMMAND_ID:
+            command = new RemoveCommand();
+            break;
+         case ReplaceCommand.COMMAND_ID:
+            command = new ReplaceCommand();
+            break;
+         case GetKeyValueCommand.COMMAND_ID:
+            command = new GetKeyValueCommand();
+            break;
+         case ClearCommand.COMMAND_ID:
+            command = new ClearCommand();
+            break;
+         case PrepareCommand.COMMAND_ID:
+            command = new PrepareCommand();
+            break;
+         case CommitCommand.COMMAND_ID:
+            command = new CommitCommand();
+            break;
+         case RollbackCommand.COMMAND_ID:
+            command = new RollbackCommand();
+            break;
+         case MultipleRpcCommand.COMMAND_ID:
+            command = new MultipleRpcCommand();
+            break;
+         case SingleRpcCommand.COMMAND_ID:
+            command = new SingleRpcCommand();
+            break;
+         case InvalidateCommand.COMMAND_ID:
+            command = new InvalidateCommand();
+            break;
+         case InvalidateL1Command.COMMAND_ID:
+            command = new InvalidateL1Command();
+            break;
+         case StateTransferControlCommand.COMMAND_ID:
+            command = new StateTransferControlCommand();
+            ((StateTransferControlCommand) command).init(transport);
+            break;
+         case ClusteredGetCommand.COMMAND_ID:
+            command = new ClusteredGetCommand();
+            break;
+         case RehashControlCommand.COMMAND_ID:
+            command = new RehashControlCommand(transport);
+            break;
+         case RemoveCacheCommand.COMMAND_ID:
+            command = new RemoveCacheCommand(cacheManager, registry);
+            break;
+         case RemoveRecoveryInfoCommand.COMMAND_ID:
+            command = new RemoveRecoveryInfoCommand();
+            break;
+         case GetInDoubtTransactionsCommand.COMMAND_ID:
+            command = new GetInDoubtTransactionsCommand();
+            break;
+         case MapReduceCommand.COMMAND_ID:
+            command = new MapReduceCommand();
+            break;
+         case DistributedExecuteCommand.COMMAND_ID:
+            command = new DistributedExecuteCommand<Object>();
+            break;
+         case GetInDoubtTxInfoCommand.COMMAND_ID:
+            command = new GetInDoubtTxInfoCommand();
+            break;
+         case CompleteTransactionCommand.COMMAND_ID:
+            command = new CompleteTransactionCommand();
+            break;
+         default:
+            throw new CacheException("Unknown command id " + id + "!");
+      }
       command.setParameters(id, parameters);
       return command;
    }
+
 }
