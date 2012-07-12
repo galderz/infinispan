@@ -30,6 +30,7 @@ import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 
+import java.util.Collections;
 import java.util.Set;
 
 /**
@@ -135,7 +136,8 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand {
       value = parameters[1];
       lifespanMillis = (Long) parameters[2];
       maxIdleTimeMillis = (Long) parameters[3];
-      flags = (Set<Flag>) parameters[4];
+      // Keep conditional check to support [4.0.x - 5.0.x]
+      flags = (Set<Flag>)  (parameters.length>4 ? parameters[4] : Collections.EMPTY_SET);
    }
 
    public boolean isPutIfAbsent() {

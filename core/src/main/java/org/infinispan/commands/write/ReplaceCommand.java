@@ -28,6 +28,7 @@ import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 
+import java.util.Collections;
 import java.util.Set;
 
 /**
@@ -129,7 +130,8 @@ public class ReplaceCommand extends AbstractDataWriteCommand {
       newValue = parameters[2];
       lifespanMillis = (Long) parameters[3];
       maxIdleTimeMillis = (Long) parameters[4];
-      flags = (Set<Flag>) parameters[5];
+      // Keep conditional check to support [4.0.x - 5.0.x]
+      flags = (Set<Flag>) (parameters.length > 5 ? parameters[5] : Collections.EMPTY_SET);
    }
 
    @Override

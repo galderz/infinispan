@@ -164,9 +164,17 @@ public class ClusteredGetCommand extends BaseRpcCommand implements FlagAffectedC
    public void setParameters(int commandId, Object[] args) {
       int i = 0;
       key = args[i++];
-      flags = (Set<Flag>) args[i++];
-      acquireRemoteLock = (Boolean) args[i++];
-      gtx = (GlobalTransaction) args[i];
+      Object secondParam = args[i++];
+      if (secondParam instanceof String) { // [4.0.x - 5.0.x]
+         cacheName = (String) secondParam;
+         if (args.length > 2) {
+            this.flags = (Set<Flag>) args[2];
+         }
+      } else {
+         flags = (Set<Flag>) secondParam;
+         acquireRemoteLock = (Boolean) args[i++];
+         gtx = (GlobalTransaction) args[i];
+      }
    }
 
    @Override

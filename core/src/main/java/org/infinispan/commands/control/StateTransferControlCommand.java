@@ -146,11 +146,16 @@ public class StateTransferControlCommand extends BaseRpcCommand {
    @SuppressWarnings("unchecked")
    public void setParameters(int commandId, Object[] parameters) {
       int i = 0;
-      type = Type.values()[(Byte) parameters[i++]];
-      sender = (Address) parameters[i++];
-      viewId = (Integer) parameters[i++];
-      state = (Collection<InternalCacheEntry>) parameters[i++];
-      locks = (Collection<LockInfo>) parameters[i];
+      Object firstParam = parameters[i++];
+      if (firstParam instanceof Boolean) { // pre 5.1.x
+         // enabled, not used any more
+      } else {
+         type = Type.values()[(Byte) firstParam];
+         sender = (Address) parameters[i++];
+         viewId = (Integer) parameters[i++];
+         state = (Collection<InternalCacheEntry>) parameters[i++];
+         locks = (Collection<LockInfo>) parameters[i];
+      }
    }
 
    @Override
@@ -169,4 +174,34 @@ public class StateTransferControlCommand extends BaseRpcCommand {
    public boolean isReturnValueExpected() {
       return true;
    }
+
+   @Override
+   public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+
+      StateTransferControlCommand that = (StateTransferControlCommand) o;
+
+      if (viewId != that.viewId) return false;
+      if (locks != null ? !locks.equals(that.locks) : that.locks != null)
+         return false;
+      if (sender != null ? !sender.equals(that.sender) : that.sender != null)
+         return false;
+      if (state != null ? !state.equals(that.state) : that.state != null)
+         return false;
+      if (type != that.type) return false;
+
+      return true;
+   }
+
+   @Override
+   public int hashCode() {
+      int result = type != null ? type.hashCode() : 0;
+      result = 31 * result + (sender != null ? sender.hashCode() : 0);
+      result = 31 * result + viewId;
+      result = 31 * result + (state != null ? state.hashCode() : 0);
+      result = 31 * result + (locks != null ? locks.hashCode() : 0);
+      return result;
+   }
+
 }

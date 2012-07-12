@@ -56,9 +56,10 @@ import java.util.Set;
  * @since 4.0
  */
 public class ReplicableCommandExternalizer extends AbstractExternalizer<ReplicableCommand> {
+
    private final RemoteCommandsFactory cmdFactory;
    private final GlobalComponentRegistry globalComponentRegistry;
-   
+
    public ReplicableCommandExternalizer(RemoteCommandsFactory cmdFactory, GlobalComponentRegistry globalComponentRegistry) {
       this.cmdFactory = cmdFactory;
       this.globalComponentRegistry = globalComponentRegistry;

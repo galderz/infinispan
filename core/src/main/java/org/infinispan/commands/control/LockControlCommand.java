@@ -174,6 +174,14 @@ public class LockControlCommand extends AbstractTransactionBoundaryCommand imple
       unlock = (Boolean) args[i++];
       keys = (List<Object>) args[i++];
       flags = (Set<Flag>) args[i];
+//=======
+//         throw new IllegalStateException("Unusupported command id:" + commandId);
+//      globalTx = (GlobalTransaction) args[0];
+//      cacheName = (String) args[1];
+//      unlock = (Boolean) args[2];
+//      keys = (List<Object>) args[3];
+//      flags = (Set<Flag>) args[4];
+//>>>>>>> 78c3b8c... ISPN-2034 Persiste binary data for marshalled objects
    }
 
    public boolean isUnlock() {

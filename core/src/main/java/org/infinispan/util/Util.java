@@ -372,6 +372,10 @@ public final class Util {
    }
 
    public static String printArray(byte[] array, boolean withHash) {
+      return printArray(array, withHash, isArraysDebug);
+   }
+
+   public static String printArray(byte[] array, boolean withHash, boolean isDebug) {
       if (array == null) return "null";
       StringBuilder sb = new StringBuilder();
       sb.append("ByteArray{size=").append(array.length);

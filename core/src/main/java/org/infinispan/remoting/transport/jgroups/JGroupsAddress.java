@@ -89,6 +89,8 @@ public class JGroupsAddress implements Address {
          try {
             org.jgroups.Address address = org.jgroups.util.Util.readAddress(unmarshaller);
             return new JGroupsAddress(address);
+         } catch (IOException e) {
+            throw e;
          } catch (Exception e) {
             throw new IOException(e);
          }

@@ -139,7 +139,13 @@ public class RemoteCommandsFactory {
                break;
             case ApplyDeltaCommand.COMMAND_ID:
                command = new ApplyDeltaCommand();
-               break;      
+               break;
+            // Support for [4.0.x - 5.0.x] commands that did not ship cache name,
+            // or past commands that will assign cache name when setting parameters
+            case StateTransferControlCommand.COMMAND_ID:
+            case ClusteredGetCommand.COMMAND_ID:
+               command = fromStream(id, parameters, type, null);
+               break;
             default:
                throw new CacheException("Unknown command id " + id + "!");
          }
@@ -231,4 +237,92 @@ public class RemoteCommandsFactory {
       command.setParameters(id, parameters);
       return command;
    }
+
+   /**
+    * Command resolution for 4.x commands.
+    */
+   @Deprecated
+   public ReplicableCommand fromStream(byte id, Object[] parameters) {
+      ReplicableCommand command;
+      switch (id) {
+         case PutKeyValueCommand.COMMAND_ID:
+            command = new PutKeyValueCommand();
+            break;
+         case LockControlCommand.COMMAND_ID:
+            command = new LockControlCommand(null);
+            break;
+         case PutMapCommand.COMMAND_ID:
+            command = new PutMapCommand();
+            break;
+         case RemoveCommand.COMMAND_ID:
+            command = new RemoveCommand();
+            break;
+         case ReplaceCommand.COMMAND_ID:
+            command = new ReplaceCommand();
+            break;
+         case GetKeyValueCommand.COMMAND_ID:
+            command = new GetKeyValueCommand();
+            break;
+         case ClearCommand.COMMAND_ID:
+            command = new ClearCommand();
+            break;
+         case PrepareCommand.COMMAND_ID:
+            command = new PrepareCommand(null);
+            break;
+         case CommitCommand.COMMAND_ID:
+            command = new CommitCommand(null);
+            break;
+         case RollbackCommand.COMMAND_ID:
+            command = new RollbackCommand(null);
+            break;
+         case MultipleRpcCommand.COMMAND_ID:
+            command = new MultipleRpcCommand(null);
+            break;
+         case SingleRpcCommand.COMMAND_ID:
+            command = new SingleRpcCommand(null);
+            break;
+         case InvalidateCommand.COMMAND_ID:
+            command = new InvalidateCommand();
+            break;
+         case InvalidateL1Command.COMMAND_ID:
+            command = new InvalidateL1Command();
+            break;
+         case StateTransferControlCommand.COMMAND_ID:
+            command = new StateTransferControlCommand();
+//            ((StateTransferControlCommand) command).init(transport);
+            break;
+         case ClusteredGetCommand.COMMAND_ID:
+            command = new ClusteredGetCommand(null);
+            break;
+//         case RehashControlCommand.COMMAND_ID:
+//            command = new RehashControlCommand(transport);
+//            break;
+         case RemoveCacheCommand.COMMAND_ID:
+            command = new RemoveCacheCommand(null, cacheManager, registry);
+            break;
+//         case RemoveRecoveryInfoCommand.COMMAND_ID:
+//            command = new RemoveRecoveryInfoCommand();
+//            break;
+         case GetInDoubtTransactionsCommand.COMMAND_ID:
+            command = new GetInDoubtTransactionsCommand(null);
+            break;
+         case MapReduceCommand.COMMAND_ID:
+            command = new MapReduceCommand(null);
+            break;
+         case DistributedExecuteCommand.COMMAND_ID:
+            command = new DistributedExecuteCommand<Object>();
+            break;
+         case GetInDoubtTxInfoCommand.COMMAND_ID:
+            command = new GetInDoubtTxInfoCommand(null);
+            break;
+         case CompleteTransactionCommand.COMMAND_ID:
+            command = new CompleteTransactionCommand(null);
+            break;
+         default:
+            throw new CacheException("Unknown command id " + id + "!");
+      }
+      command.setParameters(id, parameters);
+      return command;
+   }
+
 }

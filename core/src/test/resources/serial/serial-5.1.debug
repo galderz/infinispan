@@ -1,0 +1,255 @@
+testMethod=testJGroupsAddressMarshalling
+type=org.infinispan.remoting.transport.jgroups.JGroupsAddress
+toString=10.0.0.4:12345
+hexBinary=ByteArray{size=13, array=0x0301fe032704040a..}
+
+testMethod=testGlobalTransactionMarshalling
+type=org.infinispan.transaction.xa.GlobalTransaction
+toString=GlobalTransaction:<10.0.0.4:12345>:1:local
+hexBinary=ByteArray{size=23, array=0x0301fe0326000000..}
+
+testMethod=testListMarshalling
+type=java.util.ArrayList
+toString=[GlobalTransaction:<10.0.0.4:0>:2:local, GlobalTransaction:<10.0.0.4:1000>:3:local, GlobalTransaction:<10.0.0.4:2000>:4:local, GlobalTransaction:<10.0.0.4:3000>:5:local, GlobalTransaction:<10.0.0.4:4000>:6:local, GlobalTransaction:<10.0.0.4:5000>:7:local, GlobalTransaction:<10.0.0.4:6000>:8:local, GlobalTransaction:<10.0.0.4:7000>:9:local, GlobalTransaction:<10.0.0.4:8000>:10:local, GlobalTransaction:<10.0.0.4:9000>:11:local]
+hexBinary=ByteArray{size=206, array=0x0301fe03000a0326..}
+
+testMethod=testListMarshalling
+type=java.util.LinkedList
+toString=[GlobalTransaction:<10.0.0.4:0>:2:local, GlobalTransaction:<10.0.0.4:1000>:3:local, GlobalTransaction:<10.0.0.4:2000>:4:local, GlobalTransaction:<10.0.0.4:3000>:5:local, GlobalTransaction:<10.0.0.4:4000>:6:local, GlobalTransaction:<10.0.0.4:5000>:7:local, GlobalTransaction:<10.0.0.4:6000>:8:local, GlobalTransaction:<10.0.0.4:7000>:9:local, GlobalTransaction:<10.0.0.4:8000>:10:local, GlobalTransaction:<10.0.0.4:9000>:11:local]
+hexBinary=ByteArray{size=206, array=0x0301fe03010a0326..}
+
+testMethod=testMapMarshalling
+type=java.util.HashMap
+toString={0=GlobalTransaction:<10.0.0.4:0>:12:local, 1000=GlobalTransaction:<10.0.0.4:1000>:13:local, 2000=GlobalTransaction:<10.0.0.4:2000>:14:local, 3000=GlobalTransaction:<10.0.0.4:3000>:15:local, 4000=GlobalTransaction:<10.0.0.4:4000>:16:local, 5000=GlobalTransaction:<10.0.0.4:5000>:17:local, 6000=GlobalTransaction:<10.0.0.4:6000>:18:local, 7000=GlobalTransaction:<10.0.0.4:7000>:19:local, 8000=GlobalTransaction:<10.0.0.4:8000>:20:local, 9000=GlobalTransaction:<10.0.0.4:9000>:21:local}
+hexBinary=ByteArray{size=257, array=0x0301fe0302000a4b..}
+
+testMethod=testMapMarshalling
+type=java.util.TreeMap
+toString={0=GlobalTransaction:<10.0.0.4:0>:12:local, 1000=GlobalTransaction:<10.0.0.4:1000>:13:local, 2000=GlobalTransaction:<10.0.0.4:2000>:14:local, 3000=GlobalTransaction:<10.0.0.4:3000>:15:local, 4000=GlobalTransaction:<10.0.0.4:4000>:16:local, 5000=GlobalTransaction:<10.0.0.4:5000>:17:local, 6000=GlobalTransaction:<10.0.0.4:6000>:18:local, 7000=GlobalTransaction:<10.0.0.4:7000>:19:local, 8000=GlobalTransaction:<10.0.0.4:8000>:20:local, 9000=GlobalTransaction:<10.0.0.4:9000>:21:local}
+hexBinary=ByteArray{size=257, array=0x0301fe0302010a4b..}
+
+testMethod=testMapMarshalling
+type=org.infinispan.util.FastCopyHashMap
+toString={0=GlobalTransaction:<10.0.0.4:0>:12:local, 2000=GlobalTransaction:<10.0.0.4:2000>:14:local, 4000=GlobalTransaction:<10.0.0.4:4000>:16:local, 6000=GlobalTransaction:<10.0.0.4:6000>:18:local, 8000=GlobalTransaction:<10.0.0.4:8000>:20:local, 1000=GlobalTransaction:<10.0.0.4:1000>:13:local, 3000=GlobalTransaction:<10.0.0.4:3000>:15:local, 5000=GlobalTransaction:<10.0.0.4:5000>:17:local, 7000=GlobalTransaction:<10.0.0.4:7000>:19:local, 9000=GlobalTransaction:<10.0.0.4:9000>:21:local}
+hexBinary=ByteArray{size=257, array=0x0301fe0302020a4b..}
+
+testMethod=testMapMarshalling
+type=org.infinispan.util.Immutables$ImmutableMapWrapper
+toString={}
+hexBinary=ByteArray{size=6, array=0x0301fe031300..}
+
+testMethod=testSetMarshalling
+type=java.util.HashSet
+toString=[0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000]
+hexBinary=ByteArray{size=57, array=0x0301fe0303000a4b..}
+
+testMethod=testSetMarshalling
+type=java.util.TreeSet
+toString=[0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000]
+hexBinary=ByteArray{size=57, array=0x0301fe0303010a4b..}
+
+testMethod=testMarshalledValueMarshalling
+type=org.infinispan.marshall.MarshalledValue
+toString=MarshalledValue{instance=name=Bob Dylan Address= null, serialized=ByteArray{size=256, array=0x0301fe0409000000..}, cachedHashCode=-1568429131}@2ecc5436
+hexBinary=ByteArray{size=179, array=0x0301fe0328a80103..}
+
+testMethod=testMarshalledValueGetMarshalling
+type=org.infinispan.marshall.MarshalledValue
+toString=MarshalledValue{instance=org.infinispan.marshall.VersionAwareMarshallerTest$Pojo@0, serialized=ByteArray{size=128, array=0x0301fe040a000000..}, cachedHashCode=65261}@48c38157
+hexBinary=ByteArray{size=90, array=0x0301fe0328500301..}
+
+testMethod=testSingletonListMarshalling
+type=java.util.Collections$SingletonList
+toString=[GlobalTransaction:<10.0.0.4:12345>:22:local]
+hexBinary=ByteArray{size=25, array=0x0301fe0304032600..}
+
+testMethod=testImmutableResponseMarshalling
+type=org.infinispan.remoting.responses.UnsuccessfulResponse
+toString=UnsuccessfulResponse
+hexBinary=ByteArray{size=5, array=0x0301fe0308..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.remote.ClusteredGetCommand
+toString=ClusteredGetCommand{key=key, flags=[]}
+hexBinary=ByteArray{size=32, array=0x0301fe034a000010..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.write.PutKeyValueCommand
+toString=PutKeyValueCommand{key=k, value=v, flags=[], putIfAbsent=false, lifespanMillis=0, maxIdleTimeMillis=0}
+hexBinary=ByteArray{size=34, array=0x0301fe033e000008..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.write.RemoveCommand
+toString=RemoveCommand{key=key, value=null, flags=[]}
+hexBinary=ByteArray{size=15, array=0x0301fe033e00000a..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.write.InvalidateCommand
+toString=InvalidateCommand{keys=[null, key1, key2]}
+hexBinary=ByteArray{size=27, array=0x0301fe033e000006..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.write.InvalidateL1Command
+toString=InvalidateL1Command{num keys=2, forRehash=false, origin=null}
+hexBinary=ByteArray{size=28, array=0x0301fe033e000007..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.write.ReplaceCommand
+toString=ReplaceCommand{oldValue=oldvalue, newValue=newvalue, flags=[], successful=true}
+hexBinary=ByteArray{size=53, array=0x0301fe033e00000b..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.write.ClearCommand
+toString=ClearCommand{flags=null}
+hexBinary=ByteArray{size=10, array=0x0301fe033e000005..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.write.PutMapCommand
+toString=PutMapCommand{map={0=GlobalTransaction:<10.0.0.4:0>:23:local, 1000=GlobalTransaction:<10.0.0.4:1000>:24:local, 2000=GlobalTransaction:<10.0.0.4:2000>:25:local, 3000=GlobalTransaction:<10.0.0.4:3000>:26:local, 4000=GlobalTransaction:<10.0.0.4:4000>:27:local, 5000=GlobalTransaction:<10.0.0.4:5000>:28:local, 6000=GlobalTransaction:<10.0.0.4:6000>:29:local, 7000=GlobalTransaction:<10.0.0.4:7000>:30:local, 8000=GlobalTransaction:<10.0.0.4:8000>:31:local, 9000=GlobalTransaction:<10.0.0.4:9000>:32:local}, flags=[], lifespanMillis=0, maxIdleTimeMillis=0}
+hexBinary=ByteArray{size=282, array=0x0301fe033e000009..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.tx.PrepareCommand
+toString=PrepareCommand {modifications=[PutKeyValueCommand{key=k, value=v, flags=[], putIfAbsent=false, lifespanMillis=0, maxIdleTimeMillis=0}, RemoveCommand{key=key, value=null, flags=[]}, ReplaceCommand{oldValue=oldvalue, newValue=newvalue, flags=[], successful=true}, PutMapCommand{map={0=GlobalTransaction:<10.0.0.4:0>:23:local, 1000=GlobalTransaction:<10.0.0.4:1000>:24:local, 2000=GlobalTransaction:<10.0.0.4:2000>:25:local, 3000=GlobalTransaction:<10.0.0.4:3000>:26:local, 4000=GlobalTransaction:<10.0.0.4:4000>:27:local, 5000=GlobalTransaction:<10.0.0.4:5000>:28:local, 6000=GlobalTransaction:<10.0.0.4:6000>:29:local, 7000=GlobalTransaction:<10.0.0.4:7000>:30:local, 8000=GlobalTransaction:<10.0.0.4:8000>:31:local, 9000=GlobalTransaction:<10.0.0.4:9000>:32:local}, flags=[], lifespanMillis=0, maxIdleTimeMillis=0}], onePhaseCommit=true, gtx=GlobalTransaction:<10.0.0.4:12345>:33:local, cacheName='mycache'}
+hexBinary=ByteArray{size=420, array=0x0301fe034a00000c..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.tx.CommitCommand
+toString=CommitCommand {gtx=GlobalTransaction:<10.0.0.4:12345>:33:local, cacheName='mycache'}
+hexBinary=ByteArray{size=44, array=0x0301fe034a00000e..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.tx.RollbackCommand
+toString=RollbackCommand {gtx=GlobalTransaction:<10.0.0.4:12345>:33:local, cacheName='mycache'}
+hexBinary=ByteArray{size=44, array=0x0301fe034a00000d..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.control.LockControlCommand
+toString=LockControlCommand{cache=boomooo, keys=[k1, k2, k3], flags=[FORCE_SYNCHRONOUS, CACHE_MODE_LOCAL], unlock=false}
+hexBinary=ByteArray{size=70, array=0x0301fe034a000003..}
+
+testMethod=testReplicableCommandsMarshalling
+type=org.infinispan.commands.remote.MultipleRpcCommand
+toString=MultipleRpcCommand{commands=[ClusteredGetCommand{key=key, flags=[]}, PutKeyValueCommand{key=k, value=v, flags=[], putIfAbsent=false, lifespanMillis=0, maxIdleTimeMillis=0}, RemoveCommand{key=key, value=null, flags=[]}, ReplaceCommand{oldValue=oldvalue, newValue=newvalue, flags=[], successful=true}, PutMapCommand{map={0=GlobalTransaction:<10.0.0.4:0>:23:local, 1000=GlobalTransaction:<10.0.0.4:1000>:24:local, 2000=GlobalTransaction:<10.0.0.4:2000>:25:local, 3000=GlobalTransaction:<10.0.0.4:3000>:26:local, 4000=GlobalTransaction:<10.0.0.4:4000>:27:local, 5000=GlobalTransaction:<10.0.0.4:5000>:28:local, 6000=GlobalTransaction:<10.0.0.4:6000>:29:local, 7000=GlobalTransaction:<10.0.0.4:7000>:30:local, 8000=GlobalTransaction:<10.0.0.4:8000>:31:local, 9000=GlobalTransaction:<10.0.0.4:9000>:32:local}, flags=[], lifespanMillis=0, maxIdleTimeMillis=0}, CommitCommand {gtx=GlobalTransaction:<10.0.0.4:12345>:33:local, cacheName='mycache'}, RollbackCommand {gtx=GlobalTransaction:<10.0.0.4:12345>:33:local, cacheName='mycache'}, LockControlCommand{cache=boomooo, keys=[k1, k2, k3], flags=[FORCE_SYNCHRONOUS, CACHE_MODE_LOCAL], unlock=false}], cacheName='mycache'}
+hexBinary=ByteArray{size=572, array=0x0301fe034a000002..}
+
+testMethod=testStateTransferControlCommand
+type=org.infinispan.commands.control.StateTransferControlCommand
+toString=StateTransferControlCommand{cache=___defaultcache, type=APPLY_STATE, sender=b6e285d3-36ce-6cdf-d652-ae9397741154, viewId=99, state=4, locks=2}
+hexBinary=ByteArray{size=357, array=0x0301fe034a00000f..}
+
+testMethod=testInternalCacheEntryMarshalling
+type=org.infinispan.container.entries.ImmortalCacheEntry
+toString=ImmortalCacheEntry{key=key, value=ImmortalCacheValue {value=value}}
+hexBinary=ByteArray{size=17, array=0x0301fe030a3e036b..}
+
+testMethod=testInternalCacheEntryMarshalling
+type=org.infinispan.container.entries.MortalCacheEntry
+toString=MortalCacheEntry{key=key, value=MortalCacheValue{value=value, lifespan=200000, created=1342085743817}}
+hexBinary=ByteArray{size=31, array=0x0301fe030b3e036b..}
+
+testMethod=testInternalCacheEntryMarshalling
+type=org.infinispan.container.entries.TransientCacheEntry
+toString=TransientCacheEntry{key=key, value=TransientCacheValue{maxIdle=4000000, lastUsed=1342085744817} TransientCacheValue {value=value}}
+hexBinary=ByteArray{size=31, array=0x0301fe030c3e036b..}
+
+testMethod=testInternalCacheEntryMarshalling
+type=org.infinispan.container.entries.TransientMortalCacheEntry
+toString=TransientMortalCacheEntry{key=key, value=TransientMortalCacheValue{maxIdle=4000000, lastUsed=1342085744817} MortalCacheValue{value=value, lifespan=200000, created=1342085743817}}
+hexBinary=ByteArray{size=45, array=0x0301fe030d3e036b..}
+
+testMethod=testInternalCacheValueMarshalling
+type=org.infinispan.container.entries.ImmortalCacheValue
+toString=ImmortalCacheValue {value=value}
+hexBinary=ByteArray{size=12, array=0x0301fe030e3e0576..}
+
+testMethod=testInternalCacheValueMarshalling
+type=org.infinispan.container.entries.MortalCacheValue
+toString=MortalCacheValue{value=value, lifespan=200000, created=1342085743820}
+hexBinary=ByteArray{size=26, array=0x0301fe030f3e0576..}
+
+testMethod=testInternalCacheValueMarshalling
+type=org.infinispan.container.entries.TransientCacheValue
+toString=TransientCacheValue{maxIdle=4000000, lastUsed=1342085744820} TransientCacheValue {value=value}
+hexBinary=ByteArray{size=26, array=0x0301fe03103e0576..}
+
+testMethod=testInternalCacheValueMarshalling
+type=org.infinispan.container.entries.TransientMortalCacheValue
+toString=TransientMortalCacheValue{maxIdle=4000000, lastUsed=1342085744820} MortalCacheValue{value=value, lifespan=200000, created=1342085743820}
+hexBinary=ByteArray{size=40, array=0x0301fe03113e0576..}
+
+testMethod=testBucketMarshalling
+type=org.infinispan.loaders.bucket.Bucket
+toString=Bucket{entries={key=TransientMortalCacheEntry{key=key, value=TransientMortalCacheValue{maxIdle=4000000, lastUsed=1342085744822} MortalCacheValue{value=value, lifespan=200000, created=1342085743822}}}, bucketId='0'}
+hexBinary=ByteArray{size=48, array=0x0301fe032a01030d..}
+
+testMethod=testLongPutKeyValueCommand
+type=org.infinispan.commands.write.PutKeyValueCommand
+toString=PutKeyValueCommand{key=SESSION_173, value=@TSXMHVROYNOFCJVEUJQGBCENNQDEWSCYSOHECJOHEICBEIGJVTIBB@TVNCWLTQCGTEJ@NBJLTMVGXCHXTSVE@BCRYGWPRVLXOJXBRJDVNBVXPRTRLBMHPOUYQKDEPDSADUAWPFSIOCINPSSFGABDUXRMTMMJMRTGBGBOAMGVMTKUDUAJGCAHCYW@LAXMDSFYOSXJXLUAJGQKPTHUKDOXRWKEFIVRTH@VIMQBGYPKWMS@HPOESTPIJE@OTOTWUWIOBLYKQQPTNGWVLRRCWHNIMWDQNOO@JHHEVYVQEODMWKFKKKSWURVDLXPTFQYIHLIM@GSBFWMDQGDQIJONNEVHGQTLDBRBML@BEWGHOQHHEBRFUQSLB@@CILXEAVQQBTXSITMBXHMHORHLTJF@MKMHQGHTSENWILTAKCCPVSQIPBVRAFSSEXIOVCPDXHUBIBUPBSCGPRECXEPMQHRHDOHIHVBPNDKOVLPCLKAJMNOTSF@SRXYVUEMQRCXVIETXVHOVNGYERBNM@RIMGHC@FNTUXSJSKALGHAFHGTFEANQUMBPUYFDSGLUYRRFDJHCW@JBWOBGMGTITAICRC@TPVCRKRMFPUSRRAHI@XOYKVGPHEBQD@@APEKSBCTBKREWAQGKHTJ@IHJD@YFSRDQPA@HKKELIJGFDYFEXFCOTCQIHKCQBLVDFHMGOWIDOWMVBDSJQOFGOIAPURRHVBGEJWYBUGGVHE@PU@NMQFMYTNYJDWPIADNVNCNYCCCPGODLAO@YYLVITEMNNKIFSDXKORJYWMFGKNYFPUQIC@AIDR@IWXCVALQBDOXRWIBXLKYTWDNHHSCUROAU@HVNENDAOP@RPTRIGLLLUNDQIDXJDDNF@P@PA@FEIBQKSKFQITTHDYGQRJMWPRLQC@NJVNVSKGOGYXPYSQHKPALKLFWNAOSQFTLEPVOII@RPDNRCVRDUMMFIVSWGIASUBMTGQSDGB@TBBYECFBRBGILJFCJ@JIQIQRVJXWIPGNVXKYATSPJTIPGCMCNPOKNEHBNUIAEQFQTYVLGAR@RVWVA@RMPBX@LRLJUEBUWO@PKXNIP@FKIQSVWKNO@FOJWDSIOLXHXJFBQPPVKKP@YKXPOOMBTLXMEHPRLLSFSVGMPXXNBCYVVSPNGMFBJUDCVOVGXPKVNTOFKVJUJOSDHSCOQRXOKBVP@WCUUFGMJAUQ@GRAGXICFCFICBSNASUBPAFRIPUK@OXOCCNOGTTSFVQKBQNB@DWGVEFSGTAXAPLBJ@SYHUNXWXPMR@KPFAJCIXPDURELFYPMUSLTJSQNDHHKJTIWCGNEKJF@CUWYTWLPNHYPHXNOGLSICKEFDULIXXSIGFMCQGURSRTUJDKRXBUUXIDFECMPXQX@CVYLDABEMFKUGBTBNMNBPCKCHWRJKSOGJFXMFYLLPUVUHBCNULEFAXPVKVKQKYCEFRUYPBRBDBDOVYLIQMQBLTUK@PRDCYBOKJGVUADFJFAFFXKJTNAJTHISWOSMVAYLIOGIORQQWFAKNU@KHPM@BYKTFSLSRHBATQTKUWSFAQS@Y@QIKCUWQYTODBRCYYYIAFMDVRURKVYJXHNGVLSQQFCXKLNUPCTEJSWIJUBFELSBUHANELHSIWLVQSSAIJRUEDOHHX@CKEBPOJRLRHEPLENSCDGEWXRTVUCSPFSAJUXDJOIUWFGPKHBVRVDMUUCPUDKRKVAXPSOBOPKPRRLFCKTLH@VGWKERASJYU@JAVWNBJGQOVF@QPSGJVEPAV@NAD@@FQRYPQIOAURILWXCKINPMBNUHPUID@YDQBHWAVDPPWRFKKGWJQTI@@OPSQ@ROUGHFNHCJBDFCHRLRTEMTUBWVCNOPYXKSSQDCXTOLOIIOCXBTPAUYDICFIXPJRB@CHFNXUCXANXYKXAISDSSLJGQOLBYXWHG@@KPARPCKOXAYVPDGRW@LDCRQBNMJREHWDYMXHEXAJQKHBIRAVHJQIVGOIXNINYQMJBXKM@DXESMBHLKHVSFDLVPOSOVMLHPSHQYY@DNMCGGGAJMHPVDLBGJP@EVDGLYBMD@NWHEYTBPIBPUPYOPOJVV@IVJXJMHIWWSIRKUWSR@U@@TDVMG@GRXVLCNEIISEVIVPOMJHKOWMRMITYDUQASWJIKVNYUFQVDT@BHTOMFXVFRKAARLNOGX@ADWCKHOVEMIGBWXINCUXEMVHSJJQDU@INTHDJQPSAQNAYONDBBFYGBTNGUSJHRKLCPHQMNLDHUQJPLLCDVTYLXTHJCBUXCRDY@YI@IQDCLJBBJC@NXGANXFIWPPNFVTDJWQ@@BIYJONOFP@RHTQEYPVHPPUS@UUENSNNF@WVGTSAVKDSQNMHP@VJORGTVWXVBPWKQNRWLSQFSBMXQKWRYMXPAYREXYGONKEWJMBCSLB@KSHXMIWMSBDGQWPDMUGVNMEWKMJKQECIRRVXBPBLGAFTUFHYSHLF@TGYETMDXRFAXVEUBSTGLSMWJMXJWMDPPDAFGNBMTQEMBDLRASMUMU@QTCDCPEGODHESDQVEIQYBJJPFXDLWPUNFAREYCY@YDDSTMKWCANNPXF@@WLMEXRPUNTWNOX@YKFNNTGMXIBBDA@TYLPJFNFHPQKMSNCLBME@FBPOIYNSDFBLHITKIFEFNXXOJAAFMRTGPALOANXF@YPY@RYTVOW@AKNM@C@LJKGBJMUYGGTXRHQCPOLNOGPPS@YSKAJSTQHLRBXUACXJYBLJSEHDNMLLUBSOIHQUI@VUNF@XAVRXUCYNCBDDGUDNVRYP@TPFPKGVNPTEDOTTUUFKCHQ@WWASQXLCBHNRBVSD@NVYT@GJQYSQGYPJO@WSEYDVKCBWANAFUWLDXOQYCYP@BSJFCBTXGKUNWLWUCYL@TNOWGDFHQTWQVYLQBBRQVMGNDBVXEFXTMMVYSHNVTTQAJCHKULOAJUSGJRPHQFCROWE@OMFUVRKGCWED@IAQGRLADOJGQKLCL@FCKTSITGMJRCCMPLOS@ONPQWFUROXYAUJQXIYVDCYBPYHPYCXNCRKRKLATLWWXLBLNOPUJFUJEDOIRKS@MMYPXIJNXPFOQJCHSCBEBGDUQYXQAWEEJDOSINXYLDXUJCQECU@WQSACTDFLGELHPGDFVDXFSSFOSYDLHQFVJESNAVAHKTUPBTPLSFSHYKLEXJXGWESVQQUTUPU@QXRTIDQ@IXBBOYINNHPEMTPRVRNJPQJFACFXUBKXOFHQSPOTLCQ@PLWGEFNKYCYFMKWPFUP@GLHKNMASGIENCACUISTG@YNQCNSOSBKOIXORKSHEOXHSMJJRUICJTCK@PWFRBPLXU@MUEMPFGDLUJEKD@ROUFBLKATXUCHEAQHEYDLCFDIRJSAXTV@CYMPQNMLTMFAHPRBLNSCVFBJMKQLAHWYIOLRMTOY@@RNKTUXHFYUMHGKCCGNEOIOQCISJEHCEVTTWM@TLFRIFDREHFBTTDEJRUNTWAEETGSVDOR@@UQNKFERMBVFJBOAYHPOKMSMRIERDA@JXYSJ@ORER@MBAVWCVGFNA@FRRPQSIIOIUGAJKVQXGINUUKPJPLQRMHPUBETEEIMIBPM@PETR@XD@DOHGRIBVXKLXQWHUFMTWEDYWFWRLPGDS@TANUXGIDTRVXKVCVEXYRKXQCTI@WNSFRAHJJGG@NIPPAAOJXQRTCLBYKDA@FFGHNUIGBFKOQMEDUEFELFLNKPCHA@OXJJRYNPDFSXIFSJYTDMSSBHDPUSQQDAVD@JAAWJDSVTERAJBFEPVRWKMYAPISPWLDPSRE@UMRQLXERTWRDLQVMVCOM@NYPXFLWMWKALMQVNJ@HCTMMIOLRWBJHCYFLMM@IWXPSHRRUNICSSWHOQHUVJE@HKJAADLBTPVLDAKCHRSURJCAXYTMYKHQMWDAWWASUW@HWGBVPTRHJGDWOGHPCNWSXTNKWONQGEKDDWGCKWVSAD@YLCCENMCHALHVDYQW@NQGNCY@M@GGV@RIR@OUS@PQIJMCFEIMGPYBXYR@NSIAUEXT@MOCNWRMLYHUUAFJCCLLRNFGKLPPIIH@BYRME@UJAKIFHOV@ILP@BGXRNJBIBARSOIMTDSHMGPIGRJBGHYRYXPFUHVOOMCQFNLM@CNCBTGO@UKXBOICNVCRGHADYQVAMNSFRONJ@WITET@BSHMQLWYMVGMQJVSJOXOUJDSXYVVBQJSVGREQLIQKWC@BMDNONHXFYPQENSJINQYKHVCTUTG@QQYJKJURDCKJTUQAM@DWNXWRNILYVAAJ@IADBIXKEIHVXLXUVMGQPAQTWJCDMVDVYUDTXQTCYXDPHKBAGMTAMKEM@QNOQJBREXNWFCXNXRPGOGEIR@KQJIGXAWXLTNCX@ID@XNRNYGRF@QPNWEX@XH@XKSXLQTLQPFSHAHXJLHUTNQWFFAJYHBWIFVJELDPSPLRRDPPNXSBYBEREEELIWNVYXOXYJQAIGHALUAWNUSSNMBHBFLRMMTKEKNSINECUGWTDNMROXI@BJJXKSPIIIXOAJBFVSITQDXTODBGKEPJMWK@JOL@SWTCGSHCOPHECTPJFUXIHUOSVMUTNNSLLJDEOMAGIXEAAVILRMOJXVHHPNPUYYODMXYAYGHI@BUB@NLP@KNPCYFRWAFES@WISBACDSPELEVTJEBNRVENSXXEVDVC@RIDIDSBPQIQNNSRPS@HCJ@XPIOFDXHUBCNFQKHMUYLXW@LMFMALHLESSXCOULRWDTJIVKKTLGFE@HKGVKUGMVHWACQOTSVNWBNUUGTMSQEJ@DXJQQYPOWVRQNQKXSLOEAA@@FRDCGCCQWQ@IY@EATGQGQIETPIJHOIQRYWLTGUENQYDNQSBI@IAUDEWDKICHNUGNAIXNICMBK@CJGSASMTFKWOBSI@KULNENWXV@VNFOANM@OJHFVV@IYRMDB@LHSGXIJMMFCGJKTKDXSMY@FHDNY@VSDUORGWVFMVKJXOCCDLSLMHCSXFBTW@RQTFNRDJUIKRD@PWPY, flags=[], putIfAbsent=false, lifespanMillis=0, maxIdleTimeMillis=0}
+hexBinary=ByteArray{size=5044, array=0x0301fe033e000008..}
+
+testMethod=testExceptionResponse
+type=org.infinispan.remoting.responses.ExceptionResponse
+toString=ExceptionResponse
+hexBinary=ByteArray{size=1726, array=0x0301fe0307040900..}
+
+testMethod=testAtomicHashMap
+type=org.infinispan.atomic.AtomicHashMap
+toString=AtomicHashMap{delegate={k1=v3}}
+hexBinary=ByteArray{size=17, array=0x0301fe0314030202..}
+
+testMethod=testAtomicHashMap
+type=org.infinispan.atomic.AtomicHashMap
+toString=AtomicHashMap{delegate={}}
+hexBinary=ByteArray{size=9, array=0x0301fe0314030202..}
+
+testMethod=testAtomicHashMap
+type=org.infinispan.atomic.AtomicHashMap
+toString=AtomicHashMap{delegate={k3=v3, k2=v2}}
+hexBinary=ByteArray{size=25, array=0x0301fe0314030202..}
+
+testMethod=testAtomicHashMap
+type=org.infinispan.atomic.AtomicHashMap
+toString=AtomicHashMap{delegate={}}
+hexBinary=ByteArray{size=9, array=0x0301fe0314030202..}
+
+testMethod=testMarshallObjectThatContainsACustomReadObjectMethod
+type=org.infinispan.marshall.jboss.JBossMarshallingTest$ObjectThatContainsACustomReadObjectMethod
+toString=org.infinispan.marshall.jboss.JBossMarshallingTest$ObjectThatContainsACustomReadObjectMethod@2ad918a
+hexBinary=ByteArray{size=309, array=0x0301fe0409000000..}
+
+testMethod=testMIMECacheEntryMarshalling
+type=org.infinispan.remoting.MIMECacheEntry
+toString=org.infinispan.remoting.MIMECacheEntry@79f7abae
+hexBinary=ByteArray{size=123, array=0x0301fe0409000000..}
+
+testMethod=testByteArrayKey
+type=org.infinispan.util.ByteArrayKey
+toString=ByteArrayKey{data=ByteArray{size=3, hashCode=7fefa490, array=0x313233..}}
+hexBinary=ByteArray{size=12, array=0x0301fe0339000000..}
+
+testMethod=testConcurrentHashMap
+type=java.util.concurrent.ConcurrentHashMap
+toString={2=v2, 1=v1, 3=v3}
+hexBinary=ByteArray{size=699, array=0x0301fe0472000000..}
+
+testMethod=testMarshallingSerializableSubclass
+type=org.infinispan.marshall.VersionAwareMarshallerTest$Child1
+toString=org.infinispan.marshall.VersionAwareMarshallerTest$Child1@4fc64ed8
+hexBinary=ByteArray{size=201, array=0x0301fe0409000000..}
+
+testMethod=testMarshallingNestedSerializableSubclass
+type=org.infinispan.marshall.VersionAwareMarshallerTest$Child2
+toString=org.infinispan.marshall.VersionAwareMarshallerTest$Child2@1f61509b
+hexBinary=ByteArray{size=301, array=0x0301fe0409000000..}
+
+testMethod=testFlagMarshalling
+type=java.util.Arrays$ArrayList
+toString=[ZERO_LOCK_ACQUISITION_TIMEOUT, CACHE_MODE_LOCAL, SKIP_LOCKING, FORCE_WRITE_LOCK, SKIP_CACHE_STATUS_CHECK, FORCE_ASYNCHRONOUS, FORCE_SYNCHRONOUS, SKIP_CACHE_STORE, SKIP_CACHE_LOAD, FAIL_SILENTLY, SKIP_REMOTE_LOOKUP, SKIP_INDEXING, PUT_FOR_EXTERNAL_READ, SKIP_SHARED_CACHE_STORE, REMOVE_DATA_ON_STOP, SKIP_OWNERSHIP_CHECK, DELTA_WRITE]
+hexBinary=ByteArray{size=141, array=0x0301fe0409000000..}
+
+testMethod=testPojoWithJBossMarshallingExternalizer
+type=org.infinispan.marshall.PojoWithJBossExternalize
+toString=org.infinispan.marshall.PojoWithJBossExternalize@2389d9ce
+hexBinary=ByteArray{size=407, array=0x0301fe040b000000..}
+

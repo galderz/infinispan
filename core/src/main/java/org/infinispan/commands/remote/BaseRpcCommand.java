@@ -25,7 +25,7 @@ package org.infinispan.commands.remote;
 import org.infinispan.remoting.transport.Address;
 
 public abstract class BaseRpcCommand implements CacheRpcCommand {
-   protected final String cacheName;
+   protected String cacheName; // don't make final to more easily support past commands
 
    private Address origin;
 

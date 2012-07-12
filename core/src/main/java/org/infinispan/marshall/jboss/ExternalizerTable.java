@@ -67,6 +67,7 @@ import org.infinispan.factories.scopes.Scope;
 import org.infinispan.factories.scopes.Scopes;
 import org.infinispan.io.UnsignedNumeric;
 import org.infinispan.loaders.bucket.Bucket;
+import org.infinispan.marshall.AbstractExternalizer;
 import org.infinispan.marshall.AdvancedExternalizer;
 import org.infinispan.marshall.Ids;
 import org.infinispan.marshall.MarshalledValue;
@@ -78,6 +79,7 @@ import org.infinispan.marshall.exts.MapExternalizer;
 import org.infinispan.marshall.exts.ReplicableCommandExternalizer;
 import org.infinispan.marshall.exts.SetExternalizer;
 import org.infinispan.marshall.exts.SingletonListExternalizer;
+import org.infinispan.marshall.exts.UnindexedReplicableCmdExternalizer;
 import org.infinispan.remoting.responses.ExceptionResponse;
 import org.infinispan.remoting.responses.SuccessfulResponse;
 import org.infinispan.remoting.responses.UnsuccessfulResponse;
@@ -101,6 +103,8 @@ import org.jboss.marshalling.ObjectTable;
 import org.jboss.marshalling.Unmarshaller;
 
 import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -215,13 +219,65 @@ public class ExternalizerTable implements ObjectTable {
                log.tracef("Check contents of read externalizers: %s", readers);
             }
 
-            throw new CacheException(String.format(
-                  "Type of data read is unknown. Id=%d is not amongst known reader indexes.",
-                  readerIndex));
+            adapter = checkForLegacyExternalizers(readerIndex);
+
+            if (adapter == null) {
+               throw new CacheException(String.format(
+                     "Type of data read is unknown. Id=%d is not amongst known reader indexes.",
+                     readerIndex));
+            }
          }
       }
 
       return adapter.readObject(input);
+   }
+
+   private ExternalizerAdapter checkForLegacyExternalizers(int readerIndex) {
+      switch (readerIndex) {
+         case Ids.FASTCOPY_HASH_MAP:
+            return readers.get(Ids.MAPS);
+         case Ids.STATE_TRANSFER_CONTROL_COMMAND:
+         case Ids.CLUSTERED_GET_COMMAND:
+         case Ids.MULTIPLE_RPC_COMMAND:
+         case Ids.SINGLE_RPC_COMMAND:
+         case Ids.GET_KEY_VALUE_COMMAND:
+         case Ids.PUT_KEY_VALUE_COMMAND:
+         case Ids.REMOVE_COMMAND:
+         case Ids.INVALIDATE_COMMAND:
+         case Ids.REPLACE_COMMAND:
+         case Ids.CLEAR_COMMAND:
+         case Ids.PUT_MAP_COMMAND:
+         case Ids.PREPARE_COMMAND:
+         case Ids.COMMIT_COMMAND:
+         case Ids.ROLLBACK_COMMAND:
+         case Ids.INVALIDATE_L1_COMMAND:
+         case Ids.LOCK_CONTROL_COMMAND:
+         case Ids.REHASH_CONTROL_COMMAND:
+         case Ids.JOIN_COMPLETE_COMMAND:
+            // No need to worry about object creation cost or GC
+            return new ExternalizerAdapter(
+               readerIndex, new UnindexedReplicableCmdExternalizer(cmdFactory));
+         case Ids.TRANSACTION_LOG_ENTRY: // No equivalent
+         case Ids.REQUEST_IGNORED_RESPONSE: // No equivalent
+         case Ids.EXTENDED_RESPONSE: // No equivalent
+            return new ExternalizerAdapter(readerIndex, new AbstractExternalizer<Object>(){
+               @Override
+               public Set<Class<? extends Object>> getTypeClasses() {
+                  return null;
+               }
+
+               @Override
+               public void writeObject(ObjectOutput output, Object object) throws IOException {
+                  // no-op
+               }
+
+               @Override
+               public Object readObject(ObjectInput input) throws IOException, ClassNotFoundException {
+                  return null;
+               }
+            });
+      }
+      return null;
    }
 
    boolean isMarshallableCandidate(Object o) {

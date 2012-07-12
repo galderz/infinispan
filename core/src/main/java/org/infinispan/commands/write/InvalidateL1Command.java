@@ -175,13 +175,23 @@ public class InvalidateL1Command extends InvalidateCommand {
    @Override
    public void setParameters(int commandId, Object[] args) {
       forRehash = (Boolean) args[0];
-      writeOrigin = (Address) args[1];
-      int size = (Integer) args[2];
+      Object secondParam = args[1];
+      int size;
+      int keyStartIndex;
+      if (secondParam instanceof Address || secondParam == null) {
+         writeOrigin = (Address) secondParam;
+         size = (Integer) args[2];
+         keyStartIndex = 3;
+      } else { // [4.0.x - 5.0.x] marshalling
+         size = (Integer) secondParam;
+         keyStartIndex = 2;
+      }
+
       keys = new Object[size];
       if (size == 1) {
          keys[0] = args[3];
       } else if (size > 0) {
-         System.arraycopy(args, 3, keys, 0, size);
+         System.arraycopy(args, keyStartIndex, keys, 0, size);
       }
    }
 

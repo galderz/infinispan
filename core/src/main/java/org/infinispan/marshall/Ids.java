@@ -41,10 +41,10 @@ public interface Ids {
    int SINGLETON_LIST = 4;
    // responses
    int SUCCESSFUL_RESPONSE = 5;
-   int EXTENDED_RESPONSE = 6;
+   @Deprecated int EXTENDED_RESPONSE = 6;
    int EXCEPTION_RESPONSE = 7;
    int UNSUCCESSFUL_RESPONSE = 8;
-   int REQUEST_IGNORED_RESPONSE = 9;
+   @Deprecated int REQUEST_IGNORED_RESPONSE = 9;
    // entries and values
    int IMMORTAL_ENTRY = 10;
    int MORTAL_ENTRY = 11;
@@ -54,14 +54,35 @@ public interface Ids {
    int MORTAL_VALUE = 15;
    int TRANSIENT_VALUE = 16;
    int TRANSIENT_MORTAL_VALUE = 17;
-   // internal collections (id=18 no longer in use, might get reused at a later stage)
+   // internal collections
+   @Deprecated int FASTCOPY_HASH_MAP = 18; // unused, legacy versions
    int IMMUTABLE_MAP = 19;
    int ATOMIC_HASH_MAP = 20;
+
+   // commands (unused, but left here to handle legacy versions)
+   @Deprecated static final byte STATE_TRANSFER_CONTROL_COMMAND = 21;
+   @Deprecated static final byte CLUSTERED_GET_COMMAND = 22;
+   @Deprecated static final byte MULTIPLE_RPC_COMMAND = 23;
+   @Deprecated static final byte SINGLE_RPC_COMMAND = 24;
+   @Deprecated static final byte GET_KEY_VALUE_COMMAND = 25;
+   @Deprecated static final byte PUT_KEY_VALUE_COMMAND = 26;
+   @Deprecated static final byte REMOVE_COMMAND = 27;
+   @Deprecated static final byte INVALIDATE_COMMAND = 28;
+   @Deprecated static final byte REPLACE_COMMAND = 29;
+   @Deprecated static final byte CLEAR_COMMAND = 30;
+   @Deprecated static final byte PUT_MAP_COMMAND = 31;
+   @Deprecated static final byte PREPARE_COMMAND = 32;
+   @Deprecated static final byte COMMIT_COMMAND = 33;
+   @Deprecated static final byte ROLLBACK_COMMAND = 34;
+   @Deprecated static final byte INVALIDATE_L1_COMMAND = 35;
+   @Deprecated static final byte LOCK_CONTROL_COMMAND = 36;
+   @Deprecated static final byte EVICT_COMMAND = 37; // never used, evict command is local
+
    // others
    int GLOBAL_TRANSACTION = 38;
    int JGROUPS_ADDRESS = 39;
    int MARSHALLED_VALUE = 40;
-   int TRANSACTION_LOG_ENTRY = 41;
+   @Deprecated int TRANSACTION_LOG_ENTRY = 41;
    int BUCKET = 42;
    int DEADLOCK_DETECTING_GLOBAL_TRANSACTION = 43;
 
@@ -70,8 +91,10 @@ public interface Ids {
    int ATOMIC_PUT_OPERATION = 47;
    int ATOMIC_REMOVE_OPERATION = 48;
    int ATOMIC_CLEAR_OPERATION = 49;
+   @Deprecated int REHASH_CONTROL_COMMAND = 50; // unused, legacy versions
    int DEFAULT_CONSISTENT_HASH = 51;
    int UNION_CONSISTENT_HASH = 52;
+   @Deprecated int JOIN_COMPLETE_COMMAND = 53; // unused, legacy versions
    int UNSURE_RESPONSE = 54;
    // 55 - 56 no longer in use since server modules can now register their own externalizers
    int BYTE_ARRAY_KEY = 57;
