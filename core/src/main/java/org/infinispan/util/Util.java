@@ -29,6 +29,8 @@ import org.infinispan.marshall.Marshaller;
 
 import javax.naming.Context;
 import java.io.Closeable;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectOutput;
 import java.io.OutputStream;
 import java.lang.management.LockInfo;
@@ -557,6 +559,15 @@ public final class Util {
       return buf.toString();
    }
 
+   public static String hexDump(byte[] buffer, int lastPosition) {
+      StringBuilder buf = new StringBuilder(buffer.length << 1);
+      for (int i = 0; i < lastPosition; i++) {
+         addHexByte(buf, buffer[i]);
+      }
+
+      return buf.toString();
+   }
+
    public static String hexDump(ByteBuffer buffer) {
       byte[] data = new byte[buffer.remaining()];
       int pos = buffer.position();
@@ -569,7 +580,32 @@ public final class Util {
       return buf.toString();
    }
 
-   private static void addHexByte(StringBuilder buf, byte b) {
+   public static String hexDump(InputStream is) {
+      // Read contents
+      StringBuilder buf = null;
+      ResetOnCloseInputStream wrapper = new ResetOnCloseInputStream(is);
+      try {
+         buf = new StringBuilder(wrapper.available());
+         for (;;) {
+            int i = wrapper.read();
+            if (i != -1)
+               addHexByte(buf, i);
+            else
+               return buf.toString();
+         }
+      } catch (IOException e) {
+         // Ignore
+         return buf != null ? buf.toString() : "";
+      } finally {
+         try {
+            wrapper.close();
+         } catch (IOException e) {
+            // Ignore
+         }
+      }
+   }
+
+   private static void addHexByte(StringBuilder buf, int b) {
       buf.append(HEX_VALUES.charAt((b & 0xF0) >> 4))
          .append(HEX_VALUES.charAt((b & 0x0F)));
    }
@@ -595,4 +631,28 @@ public final class Util {
    public static boolean isIBMJavaVendor() {
       return javaVendor.toLowerCase().contains("ibm");
    }
+
+   private static class ResetOnCloseInputStream extends InputStream {
+
+      private final InputStream decorated;
+
+      private ResetOnCloseInputStream(InputStream anInputStream) {
+         if (!anInputStream.markSupported())
+            throw new IllegalArgumentException("marking not supported");
+
+         anInputStream.mark(Integer.MAX_VALUE);
+         decorated = anInputStream;
+      }
+
+      @Override
+      public void close() throws IOException {
+         decorated.reset();
+      }
+
+      @Override
+      public int read() throws IOException {
+         return decorated.read();
+      }
+   }
+
 }

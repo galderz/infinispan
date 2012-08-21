@@ -23,6 +23,7 @@ import org.infinispan.io.ByteBuffer;
 import org.infinispan.io.ExposedByteArrayOutputStream;
 import org.infinispan.marshall.AbstractMarshaller;
 import org.infinispan.marshall.StreamingMarshaller;
+import org.infinispan.util.Util;
 import org.infinispan.util.logging.BasicLogFactory;
 import org.jboss.logging.BasicLogger;
 import org.jboss.marshalling.ExceptionListener;
@@ -150,9 +151,12 @@ public abstract class AbstractJBossMarshaller extends AbstractMarshaller impleme
       PerThreadInstanceHolder instanceHolder = marshallerTL.get();
       Unmarshaller unmarshaller = instanceHolder.getUnmarshaller();
 
-      if (trace)
+      if (trace) {
          log.tracef("Start unmarshaller after retrieving marshaller from %s",
                    isReentrant ? "factory" : "thread local");
+
+         log.tracef("Contents to be unmarshalled: %s", Util.hexDump(is));
+      }
 
       unmarshaller.start(Marshalling.createByteInput(is));
       return unmarshaller;

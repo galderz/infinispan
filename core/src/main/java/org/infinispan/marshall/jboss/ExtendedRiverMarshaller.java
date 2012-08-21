@@ -19,12 +19,17 @@
 
 package org.infinispan.marshall.jboss;
 
+import org.infinispan.util.Util;
+import org.infinispan.util.logging.Log;
+import org.infinispan.util.logging.LogFactory;
 import org.jboss.marshalling.MarshallingConfiguration;
+import org.jboss.marshalling.SimpleDataOutput;
 import org.jboss.marshalling.reflect.SerializableClassRegistry;
 import org.jboss.marshalling.river.RiverMarshaller;
 import org.jboss.marshalling.river.RiverMarshallerFactory;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 
 /**
  * {@link RiverMarshaller} extension that allows Infinispan code to directly
@@ -35,6 +40,9 @@ import java.io.IOException;
  */
 public class ExtendedRiverMarshaller extends RiverMarshaller {
 
+   private static final Log log = LogFactory.getLog(ExtendedRiverMarshaller.class);
+   private static final boolean trace = log.isTraceEnabled();
+
    private RiverCloseListener listener;
 
    public ExtendedRiverMarshaller(RiverMarshallerFactory factory,
@@ -44,6 +52,21 @@ public class ExtendedRiverMarshaller extends RiverMarshaller {
 
    @Override
    public void finish() throws IOException {
+      // Before finishing, dump contents if debugging
+      if (trace) {
+         // Reflectiont to get position (!!!)
+         try {
+            Field positionField = SimpleDataOutput.class.getDeclaredField("position");
+            positionField.setAccessible(true);
+            int position = ((Integer) positionField.get(this)).intValue();
+            log.tracef("Marshalled payload contents: %s", Util.hexDump(buffer, position));
+         } catch (NoSuchFieldException e) {
+            log.warn("Unable to log marshalled content", e);
+         } catch (IllegalAccessException e) {
+            log.warn("Unable to log marshalled content", e);
+         }
+      }
+
       super.finish();
       if (listener != null) {
          listener.closeMarshaller();
