@@ -107,6 +107,11 @@ public interface CacheNotifier extends Listenable {
          InvocationContext ctx, FlagAffectedCommand command);
 
    /**
+    * Notifies all registered listeners of a CacheEntriesExpired event.
+    */
+   void notifyCacheEntriesExpired(Collection<InternalCacheEntry> entries, boolean pre);
+
+   /**
     * Notifies all registered listeners of a transaction completion event.
     *
     * @param transaction the transaction that has just completed

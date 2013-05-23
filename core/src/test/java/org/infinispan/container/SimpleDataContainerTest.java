@@ -60,7 +60,7 @@ public class SimpleDataContainerTest extends AbstractInfinispanTest {
       DefaultDataContainer dc = new DefaultDataContainer(16, AnyEquivalence.getInstance(), AnyEquivalence.getInstance());
       InternalEntryFactoryImpl internalEntryFactory = new InternalEntryFactoryImpl();
       internalEntryFactory.injectTimeService(TIME_SERVICE);
-      dc.initialize(null, null, internalEntryFactory, null, null, TIME_SERVICE);
+      dc.initialize(null, null, internalEntryFactory, null, null, null, TIME_SERVICE);
       return dc;
    }
 

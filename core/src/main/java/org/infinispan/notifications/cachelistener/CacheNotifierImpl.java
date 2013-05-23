@@ -72,6 +72,7 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
       allowedListeners.put(CacheEntryPassivated.class, CacheEntryPassivatedEvent.class);
       allowedListeners.put(CacheEntryLoaded.class, CacheEntryLoadedEvent.class);
       allowedListeners.put(CacheEntriesEvicted.class, CacheEntriesEvictedEvent.class);
+      allowedListeners.put(CacheEntriesExpired.class, CacheEntriesExpiredEvent.class);
       allowedListeners.put(TransactionRegistered.class, TransactionRegisteredEvent.class);
       allowedListeners.put(TransactionCompleted.class, TransactionCompletedEvent.class);
       allowedListeners.put(CacheEntryInvalidated.class, CacheEntryInvalidatedEvent.class);
@@ -91,6 +92,7 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
    final List<ListenerInvocation> cacheEntryLoadedListeners = new CopyOnWriteArrayList<ListenerInvocation>();
    final List<ListenerInvocation> cacheEntryInvalidatedListeners = new CopyOnWriteArrayList<ListenerInvocation>();
    final List<ListenerInvocation> cacheEntriesEvictedListeners = new CopyOnWriteArrayList<ListenerInvocation>();
+   final List<ListenerInvocation> cacheEntriesExpiredListeners = new CopyOnWriteArrayList<ListenerInvocation>();
    final List<ListenerInvocation> transactionRegisteredListeners = new CopyOnWriteArrayList<ListenerInvocation>();
    final List<ListenerInvocation> transactionCompletedListeners = new CopyOnWriteArrayList<ListenerInvocation>();
    final List<ListenerInvocation> dataRehashedListeners = new CopyOnWriteArrayList<ListenerInvocation>();
@@ -111,6 +113,7 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
       listenersMap.put(CacheEntryPassivated.class, cacheEntryPassivatedListeners);
       listenersMap.put(CacheEntryLoaded.class, cacheEntryLoadedListeners);
       listenersMap.put(CacheEntriesEvicted.class, cacheEntriesEvictedListeners);
+      listenersMap.put(CacheEntriesExpired.class, cacheEntriesExpiredListeners);
       listenersMap.put(TransactionRegistered.class, transactionRegisteredListeners);
       listenersMap.put(TransactionCompleted.class, transactionCompletedListeners);
       listenersMap.put(CacheEntryInvalidated.class, cacheEntryInvalidatedListeners);
@@ -208,36 +211,8 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
 
    @Override
    public void notifyCacheEntriesEvicted(Collection<InternalCacheEntry> entries, InvocationContext ctx, FlagAffectedCommand command) {
-      if (!entries.isEmpty()) {
-         if (isNotificationAllowed(command, cacheEntriesEvictedListeners)) {
-            EventImpl<Object, Object> e = EventImpl.createEvent(cache, CACHE_ENTRY_EVICTED);
-            Map<Object, Object> evictedKeysAndValues = transformCollectionToMap(entries,
-               new InfinispanCollections.MapMakerFunction<Object, Object, InternalCacheEntry>() {
-                  @Override
-                  public Map.Entry<Object, Object> transform(final InternalCacheEntry input) {
-                     return new Map.Entry<Object, Object>() {
-                        @Override
-                        public Object getKey() {
-                          return input.getKey();
-                        }
-
-                        @Override
-                        public Object getValue() {
-                          return input.getValue();
-                        }
-
-                        @Override
-                        public Object setValue(Object value) {
-                          throw new UnsupportedOperationException();
-                        }
-                     };
-                  }
-               }
-            );
-
-            e.setEntries(evictedKeysAndValues);
-            for (ListenerInvocation listener : cacheEntriesEvictedListeners) listener.invoke(e);
-         }
+      if (!entries.isEmpty() && isNotificationAllowed(command, cacheEntriesEvictedListeners)) {
+         notifyCacheEntries(entries, false, cacheEntriesEvictedListeners, CACHE_ENTRY_EVICTED);
 
          // For backward compat
          if (isNotificationAllowed(command, cacheEntryEvictedListeners)) {
@@ -329,6 +304,51 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
          e.setValue(value);
          for (ListenerInvocation listener : cacheEntryPassivatedListeners) listener.invoke(e);
       }
+   }
+
+   @Override
+   public void notifyCacheEntriesExpired(Collection<InternalCacheEntry> entries, boolean pre) {
+      if (!entries.isEmpty()) {
+         if (!pre) {
+            for (InternalCacheEntry entry : entries)
+               entry.setValue(null); // nullify value to adhere to expiration event requirements
+         }
+
+         notifyCacheEntries(entries, pre, cacheEntriesExpiredListeners, CACHE_ENTRIES_EXPIRED);
+      }
+   }
+
+   private void notifyCacheEntries(Collection<InternalCacheEntry> entries,
+         boolean pre, List<ListenerInvocation> listeners,
+         Event.Type eventType) {
+      EventImpl<Object, Object> e = EventImpl.createEvent(cache, eventType);
+      e.setPre(pre);
+      Map<Object, Object> mappedEntries = transformCollectionToMap(entries,
+            new InfinispanCollections.MapMakerFunction<Object, Object, InternalCacheEntry>() {
+               @Override
+               public Map.Entry<Object, Object> transform(final InternalCacheEntry input) {
+                  return new Map.Entry<Object, Object>() {
+                     @Override
+                     public Object getKey() {
+                        return input.getKey();
+                     }
+
+                     @Override
+                     public Object getValue() {
+                        return input.getValue();
+                     }
+
+                     @Override
+                     public Object setValue(Object value) {
+                        throw new UnsupportedOperationException();
+                     }
+                  };
+               }
+            }
+      );
+
+      e.setEntries(mappedEntries);
+      for (ListenerInvocation listener : listeners) listener.invoke(e);
    }
 
    @Override

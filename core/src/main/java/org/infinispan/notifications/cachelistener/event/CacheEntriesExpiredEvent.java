@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2009 Red Hat Inc. and/or its affiliates and other
+ * Copyright 2013 Red Hat Inc. and/or its affiliates and other
  * contributors as indicated by the @author tags. All rights reserved.
  * See the copyright.txt in the distribution for a full listing of
  * individual contributors.
@@ -20,36 +20,32 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
+
 package org.infinispan.notifications.cachelistener.event;
 
-import org.infinispan.Cache;
+import java.util.Map;
 
 /**
- * An interface that defines common characteristics of events
+ * This event subtype is passed in to any method annotated with
+ * {@link org.infinispan.notifications.cachelistener.annotation.CacheEntriesExpired}.
  *
- * @author Manik Surtani
- * @since 4.0
+ * @author Galder Zamarreño
+ * @since 5.3
  */
-public interface Event<K, V> {
-   static enum Type {
-      CACHE_ENTRY_ACTIVATED, CACHE_ENTRY_PASSIVATED, CACHE_ENTRY_VISITED,
-      CACHE_ENTRY_LOADED, CACHE_ENTRY_EVICTED, CACHE_ENTRY_CREATED, CACHE_ENTRY_REMOVED, CACHE_ENTRY_MODIFIED,
-      TRANSACTION_COMPLETED, TRANSACTION_REGISTERED, CACHE_ENTRY_INVALIDATED, DATA_REHASHED, TOPOLOGY_CHANGED,
-      CACHE_ENTRIES_EXPIRED
-   }
+public interface CacheEntriesExpiredEvent<K, V> extends Event<K, V> {
+
+   // Made cache entries expired event plural instead of singular to better
+   // deal with future improvements, such as expiration notifications from
+   // cache stores, which could expire entries in group.
 
    /**
-    * @return the type of event represented by this instance.
+    * Retrieves entries being expired.
+    *
+    * @return A map containing the key/value pairs of the cache entries being
+    * expired if {@link #isPre()} is true. Otherwise, if {@link #isPre()}
+    * is false, a map containing the keys being expired with their values set
+    * to null.
     */
-   Type getType();
+   Map<K, V> getEntries();
 
-   /**
-    * @return <tt>true</tt> if the notification is before the event has occurred, <tt>false</tt> if after the event has occurred.
-    */
-   boolean isPre();
-
-   /**
-    * @return a handle to the cache instance that generated this notification.
-    */
-   Cache<K, V> getCache();
 }

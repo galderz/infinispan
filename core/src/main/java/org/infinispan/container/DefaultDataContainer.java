@@ -37,6 +37,7 @@ import org.infinispan.loaders.CacheLoaderException;
 import org.infinispan.loaders.CacheLoaderManager;
 import org.infinispan.loaders.CacheStore;
 import org.infinispan.util.CollectionFactory;
+import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.util.Immutables;
 import org.infinispan.util.TimeService;
 import org.infinispan.util.concurrent.BoundedConcurrentHashMap;
@@ -74,6 +75,7 @@ public class DefaultDataContainer implements DataContainer {
    private ActivationManager activator;
    private CacheLoaderManager clm;
    private TimeService timeService;
+   private CacheNotifier notifier;
 
    public DefaultDataContainer(int concurrencyLevel) {
       // If no comparing implementations passed, could fallback on JDK CHM
@@ -122,13 +124,15 @@ public class DefaultDataContainer implements DataContainer {
 
    @Inject
    public void initialize(EvictionManager evictionManager, PassivationManager passivator,
-         InternalEntryFactory entryFactory, ActivationManager activator, CacheLoaderManager clm, TimeService timeService) {
+         InternalEntryFactory entryFactory, ActivationManager activator, CacheLoaderManager clm,
+         CacheNotifier notifier, TimeService timeService) {
       this.evictionManager = evictionManager;
       this.passivator = passivator;
       this.entryFactory = entryFactory;
       this.activator = activator;
       this.clm = clm;
       this.timeService = timeService;
+      this.notifier = notifier;
    }
 
    public static DataContainer boundedDataContainer(int concurrencyLevel, int maxEntries,
@@ -158,7 +162,9 @@ public class DefaultDataContainer implements DataContainer {
       if (e != null && e.canExpire()) {
          long currentTimeMillis = timeService.wallClockTime();
          if (e.isExpired(currentTimeMillis)) {
+            notifier.notifyCacheEntriesExpired(Collections.singleton(e), true);
             entries.remove(k);
+            notifier.notifyCacheEntriesExpired(Collections.singleton(e), false);
             e = null;
          } else {
             e.touch(currentTimeMillis);
@@ -232,7 +238,9 @@ public class DefaultDataContainer implements DataContainer {
       for (Iterator<InternalCacheEntry> purgeCandidates = entries.values().iterator(); purgeCandidates.hasNext();) {
          InternalCacheEntry e = purgeCandidates.next();
          if (e.isExpired(currentTimeMillis)) {
+            notifier.notifyCacheEntriesExpired(Collections.singleton(e), true);
             purgeCandidates.remove();
+            notifier.notifyCacheEntriesExpired(Collections.singleton(e), false);
          }
       }
    }
