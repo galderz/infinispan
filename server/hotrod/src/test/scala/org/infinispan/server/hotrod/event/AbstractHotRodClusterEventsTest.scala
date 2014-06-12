@@ -123,6 +123,7 @@ abstract class AbstractHotRodClusterEventsTest extends HotRodMultiNodeTest {
       expectNoEvents()(listener)
       client1.remove(key)
       client1.remove(k(m, "k2-"))
+      expectNoEvents()(listener)
    }
 
    def testFailoverSendsEventsForNewContent(m: Method) {

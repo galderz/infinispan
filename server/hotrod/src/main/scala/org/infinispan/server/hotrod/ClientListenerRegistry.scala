@@ -116,7 +116,7 @@ class ClientListenerRegistry(configuration: HotRodServerConfiguration) extends L
    }
 
    def removeClientListener(listenerId: Array[Byte], cache: Cache): Boolean = {
-      val sender = eventSenders.get(listenerId)
+      val sender = eventSenders.remove(listenerId)
       if (sender != null) {
          cache.removeListener(sender)
          true
