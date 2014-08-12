@@ -63,6 +63,12 @@ public class RoundRobinBalancingStrategy implements RequestBalancingStrategy {
    private SocketAddress getServerByIndex(int pos) {
       SocketAddress server = servers[pos];
       if (log.isTraceEnabled()) {
+         try {
+            throw new Exception("Stacktrace - getServerByIndex()");
+         } catch (Exception e) {
+            log.tracef(e, "Where is this coming from?");
+         }
+
          log.tracef("Returning server: %s", server);
       }
       return server;

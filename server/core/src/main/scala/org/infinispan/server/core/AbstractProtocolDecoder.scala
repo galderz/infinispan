@@ -64,7 +64,7 @@ abstract class AbstractProtocolDecoder[K, V](secure: Boolean, transport: NettyTr
    private def decodeDispatch(ctx: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
       try {
          if (isTrace) // To aid debugging
-            trace("Decode %s using instance @%x", state, System.identityHashCode(this))
+            trace("Decode %s using instance @%x and remote address %s", state, System.identityHashCode(this), ctx.channel().remoteAddress())
          state match {
             case DECODE_HEADER => decodeHeader(ctx, in, state, out)
             case DECODE_KEY => decodeKey(ctx, in, state)
@@ -85,7 +85,7 @@ abstract class AbstractProtocolDecoder[K, V](secure: Boolean, transport: NettyTr
             }
          }
          case t: Throwable => {
-           trace("Decode encountered throwable" + t, t);
+           debug(t, "Decode encountered throwable")
            throw t
          }
       } finally {
@@ -357,6 +357,7 @@ abstract class AbstractProtocolDecoder[K, V](secure: Boolean, transport: NettyTr
 
    override def channelActive(ctx: ChannelHandlerContext) {
       transport.acceptedChannels.add(ctx.channel)
+      debug("Client channel active from %s", ctx.channel().remoteAddress())
       super.channelActive(ctx)
    }
 
@@ -450,7 +451,10 @@ abstract class AbstractProtocolDecoder[K, V](secure: Boolean, transport: NettyTr
 
   def bind(ctx: ChannelHandlerContext, localAddress: SocketAddress, promise: ChannelPromise): Unit = ctx.bind(localAddress, promise)
 
-  def connect(ctx: ChannelHandlerContext, remoteAddress: SocketAddress, localAddress: SocketAddress, promise: ChannelPromise): Unit = ctx.connect(remoteAddress, localAddress, promise)
+  def connect(ctx: ChannelHandlerContext, remoteAddress: SocketAddress, localAddress: SocketAddress, promise: ChannelPromise): Unit = {
+     debug("Client %s connected to ", remoteAddress, localAddress)
+     ctx.connect(remoteAddress, localAddress, promise)
+  }
 
   def disconnect(ctx: ChannelHandlerContext, promise: ChannelPromise): Unit = ctx.disconnect(promise)
 

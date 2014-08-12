@@ -81,6 +81,7 @@ public class TcpTransport extends AbstractTransport {
          readBuffer = ByteBuffer.allocate(socketChannel.getOption(StandardSocketOptions.SO_RCVBUF));
          readBuffer.limit(0);
          inputStream = createInputStream();
+         waitForConnect();
       } catch (Exception e) {
          String message = String.format("Could not connect to server: %s", serverAddress);
          log.trace(message, e);
@@ -246,6 +247,13 @@ public class TcpTransport extends AbstractTransport {
          } else {
             readBuffer.flip();
             try {
+               if (log.isTraceEnabled()) {
+                  try {
+                     throw new Exception("completed() callback, responderReader is: " + responseReader);
+                  } catch (Exception e) {
+                     log.tracef(e, "Where is this coming from?");
+                  }
+               }
                Object value = responseReader.call();
                futureSet(value);
             } catch (Throwable t) {
@@ -303,15 +311,7 @@ public class TcpTransport extends AbstractTransport {
          if (connectFuture.isCancelled()) {
             throw new TransportException("Connection was cancelled!", serverAddress);
          }
-         try {
-            connectFuture.get();
-         } catch (InterruptedException e) {
-            throw new IllegalStateException("Cannot be interrupted when the future is done.", e);
-         } catch (ExecutionException e) {
-            String message = String.format("Could not connect to server: %s", serverAddress);
-            log.trace(message, e.getCause());
-            throw new TransportException(message, e.getCause(), serverAddress);
-         }
+         //waitForConnect();
          log.trace("Transport is connected, flushing in the same thread");
          flushWrite(buffer);
       } else {
@@ -348,6 +348,19 @@ public class TcpTransport extends AbstractTransport {
          });
       }
       return finishFuture;
+   }
+
+   private void waitForConnect() {
+      try {
+         connectFuture.get();
+         log.debug("Transport connected");
+      } catch (InterruptedException e) {
+         throw new IllegalStateException("Cannot be interrupted when the future is done.", e);
+      } catch (ExecutionException e) {
+         String message = String.format("Could not connect to server: %s", serverAddress);
+         log.trace(message, e.getCause());
+         throw new TransportException(message, e.getCause(), serverAddress);
+      }
    }
 
    protected void flushWrite(ByteBuffer buffer) {
@@ -446,7 +459,7 @@ public class TcpTransport extends AbstractTransport {
 
       TcpTransport that = (TcpTransport) o;
 
-      if (socketChannel != that.socketChannel) {
+      if (socketChannel != null ? !socketChannel.equals(that.socketChannel) : that.socketChannel != null) {
          return false;
       }
       if (serverAddress != null ? !serverAddress.equals(that.serverAddress) : that.serverAddress != null) {

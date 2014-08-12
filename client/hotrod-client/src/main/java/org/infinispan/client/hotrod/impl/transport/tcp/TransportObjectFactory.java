@@ -75,37 +75,37 @@ public class TransportObjectFactory
 
    @Override
    public void destroyObject(SocketAddress address, TcpTransport transport) throws Exception {
-      if (log.isTraceEnabled()) {
-         try {
-            throw new Exception("Stacktrace");
-         } catch (Exception e) {
-            log.tracef(e, "%08x, About to destroy tcp transport: %s", this.hashCode(), transport);
-         }
-      }
+//      if (log.isTraceEnabled()) {
+//         try {
+//            throw new Exception("Stacktrace");
+//         } catch (Exception e) {
+//            log.tracef(e, "%08x, About to destroy tcp transport: %s", this.hashCode(), transport);
+//         }
+//      }
       transport.destroy();
    }
 
    @Override
    public void activateObject(SocketAddress address, TcpTransport transport) throws Exception {
       super.activateObject(address, transport);
-      if (log.isTraceEnabled()) {
-         try {
-            throw new Exception("Stacktrace");
-         } catch (Exception e) {
-            log.tracef(e, "Fetching from pool: %s", transport);
-         }
-      }
+//      if (log.isTraceEnabled()) {
+//         try {
+//            throw new Exception("Stacktrace");
+//         } catch (Exception e) {
+//            log.tracef(e, "Fetching from pool: %s", transport);
+//         }
+//      }
    }
 
    @Override
    public void passivateObject(SocketAddress address, TcpTransport transport) throws Exception {
       super.passivateObject(address, transport);
-      if (log.isTraceEnabled()) {
-         try {
-            throw new Exception("Stacktrace");
-         } catch (Exception e) {
-            log.tracef(e, "Returning to pool: %s", transport);
-         }
-      }
+//      if (log.isTraceEnabled()) {
+//         try {
+//            throw new Exception("Stacktrace");
+//         } catch (Exception e) {
+//            log.tracef(e, "Returning to pool: %s", transport);
+//         }
+//      }
    }
 }

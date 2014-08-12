@@ -62,6 +62,7 @@ public abstract class RetryOnFailureOperation<T> extends HotRodOperation<T> {
                @Override
                public void run() {
                   context.transport = getTransport(context.retryCount - 1, context.failedServers);
+                  log.debugf("Write header parameters using transport %s", context.transport);
                   final HeaderParams params = writeRequest(context.transport);
                   context.requestFuture = context.transport.flush(new Callable<T>() {
                      @Override
