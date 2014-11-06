@@ -168,11 +168,11 @@ class ClientListenerRegistry(configuration: HotRodServerConfiguration) extends L
       cacheEventConverterFactories.clear()
    }
 
-   @Listener(clustered = true, includeCurrentState = true)
+   @Listener(clustered = true, includeCurrentState = true, sync = false)
    private class StatefulClientEventSender(ch: Channel, listenerId: Bytes, version: Byte, targetEventType: ClientEventType)
            extends BaseClientEventSender(ch, listenerId, version, targetEventType)
 
-   @Listener(clustered = true, includeCurrentState = false)
+   @Listener(clustered = true, includeCurrentState = false, sync = false)
    private class StatelessClientEventSender(ch: Channel, listenerId: Bytes, version: Byte, targetEventType: ClientEventType)
            extends BaseClientEventSender(ch, listenerId, version, targetEventType)
 
@@ -276,12 +276,12 @@ class ClientListenerRegistry(configuration: HotRodServerConfiguration) extends L
       }
    }
 
-   @Listener(clustered = true, includeCurrentState = true)
+   @Listener(clustered = true, includeCurrentState = true, sync = false)
    private class StatefulCompatibilityClientEventSender(
            delegate: BaseClientEventSender, converter: HotRodTypeConverter)
       extends BaseCompatibilityClientEventSender(delegate, converter)
 
-   @Listener(clustered = true, includeCurrentState = false)
+   @Listener(clustered = true, includeCurrentState = false, sync = false)
    private class StatelessCompatibilityClientEventSender(
            delegate: BaseClientEventSender, converter: HotRodTypeConverter)
            extends BaseCompatibilityClientEventSender(delegate, converter)
