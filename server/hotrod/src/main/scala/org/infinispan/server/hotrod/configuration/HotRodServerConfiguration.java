@@ -15,9 +15,11 @@ public class HotRodServerConfiguration extends ProtocolServerConfiguration {
    private final boolean topologyAwaitInitialTransfer;
    private final boolean topologyStateTransfer;
    private final AuthenticationConfiguration authentication;
+   private final EventsConfiguration events;
 
    HotRodServerConfiguration(String defaultCacheName, String proxyHost, int proxyPort, long topologyLockTimeout, long topologyReplTimeout, boolean topologyAwaitInitialTransfer, boolean topologyStateTransfer,
-         String name, String host, int port, int idleTimeout, int recvBufSize, int sendBufSize, SslConfiguration ssl, boolean tcpNoDelay, int workerThreads, AuthenticationConfiguration authentication) {
+         String name, String host, int port, int idleTimeout, int recvBufSize, int sendBufSize, SslConfiguration ssl, boolean tcpNoDelay, int workerThreads, AuthenticationConfiguration authentication,
+         EventsConfiguration events) {
       super(defaultCacheName, name, host, port, idleTimeout, recvBufSize, sendBufSize, ssl, tcpNoDelay, workerThreads);
       this.proxyHost = proxyHost;
       this.proxyPort = proxyPort;
@@ -27,6 +29,7 @@ public class HotRodServerConfiguration extends ProtocolServerConfiguration {
       this.topologyStateTransfer = topologyStateTransfer;
       this.topologyAwaitInitialTransfer = topologyAwaitInitialTransfer;
       this.authentication = authentication;
+      this.events = events;
    }
 
    public String proxyHost() {
@@ -61,12 +64,17 @@ public class HotRodServerConfiguration extends ProtocolServerConfiguration {
       return authentication;
    }
 
+   public EventsConfiguration events() {
+      return events;
+   }
+
    @Override
    public String toString() {
       return "HotRodServerConfiguration [proxyHost=" + proxyHost + ", proxyPort=" + proxyPort + ", topologyCacheName="
             + topologyCacheName + ", topologyLockTimeout=" + topologyLockTimeout + ", topologyReplTimeout="
             + topologyReplTimeout + ", topologyAwaitInitialTransfer=" + topologyAwaitInitialTransfer
             + ", topologyStateTransfer=" + topologyStateTransfer + ", authentication=" + authentication
+            + ", events=" + events
             + ", " + super.toString() + "]";
    }
 }

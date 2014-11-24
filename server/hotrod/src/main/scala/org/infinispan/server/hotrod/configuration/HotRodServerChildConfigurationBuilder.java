@@ -14,6 +14,8 @@ public interface HotRodServerChildConfigurationBuilder {
 
    AuthenticationConfigurationBuilder authentication();
 
+   EventsConfigurationBuilder events();
+
    /**
     * Sets the external address of this node, i.e. the address which clients will connect to
     */

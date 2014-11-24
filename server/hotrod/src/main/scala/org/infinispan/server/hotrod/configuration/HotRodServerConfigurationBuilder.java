@@ -15,6 +15,7 @@ import org.infinispan.server.core.configuration.ProtocolServerConfigurationBuild
 public class HotRodServerConfigurationBuilder extends ProtocolServerConfigurationBuilder<HotRodServerConfiguration, HotRodServerConfigurationBuilder> implements
       Builder<HotRodServerConfiguration>, HotRodServerChildConfigurationBuilder {
    private final AuthenticationConfigurationBuilder authentication = new AuthenticationConfigurationBuilder(this);
+   private final EventsConfigurationBuilder events = new EventsConfigurationBuilder(this);
    private String proxyHost;
    private int proxyPort = -1;
    private long topologyLockTimeout = 10000L;
@@ -34,6 +35,11 @@ public class HotRodServerConfigurationBuilder extends ProtocolServerConfiguratio
    @Override
    public AuthenticationConfigurationBuilder authentication() {
       return authentication;
+   }
+
+   @Override
+   public EventsConfigurationBuilder events() {
+      return events;
    }
 
    /**
@@ -94,7 +100,7 @@ public class HotRodServerConfigurationBuilder extends ProtocolServerConfiguratio
    @Override
    public HotRodServerConfiguration create() {
       return new HotRodServerConfiguration(defaultCacheName, proxyHost, proxyPort, topologyLockTimeout, topologyReplTimeout, topologyAwaitInitialTransfer, topologyStateTransfer, name, host, port, idleTimeout,
-            recvBufSize, sendBufSize, ssl.create(), tcpNoDelay, workerThreads, authentication.create());
+            recvBufSize, sendBufSize, ssl.create(), tcpNoDelay, workerThreads, authentication.create(), events.create());
    }
 
    @Override
@@ -119,6 +125,7 @@ public class HotRodServerConfigurationBuilder extends ProtocolServerConfiguratio
          proxyPort = port;
       }
       authentication.validate();
+      events.validate();
    }
 
    public HotRodServerConfiguration build(boolean validate) {

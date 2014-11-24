@@ -2,7 +2,7 @@ package org.infinispan.server.hotrod
 
 import java.io.{ObjectInput, ObjectOutput}
 import java.lang.reflect.Constructor
-import java.util.concurrent.ConcurrentMap
+import java.util.concurrent.{TimeUnit, LinkedBlockingQueue, Executors, ConcurrentMap}
 import java.util.concurrent.atomic.AtomicLong
 
 import io.netty.channel.Channel
@@ -12,6 +12,7 @@ import org.infinispan.commons.marshall.{AbstractExternalizer, Marshaller}
 import org.infinispan.commons.util.CollectionFactory
 import org.infinispan.commons.util.concurrent.jdk8backported.EquivalentConcurrentHashMapV8
 import org.infinispan.container.versioning.NumericVersion
+import org.infinispan.factories.threads.DefaultThreadFactory
 import org.infinispan.metadata.Metadata
 import org.infinispan.notifications._
 import org.infinispan.notifications.cachelistener.annotation.{CacheEntryCreated, CacheEntryModified, CacheEntryRemoved}
@@ -32,7 +33,7 @@ class ClientListenerRegistry(configuration: HotRodServerConfiguration) extends L
    import ClientListenerRegistry._
 
    private val messageId = new AtomicLong()
-   private val eventSenders = new EquivalentConcurrentHashMapV8[Bytes, AnyRef](
+   private val eventSenders = new EquivalentConcurrentHashMapV8[Bytes, EventListener[_, _]](
       ByteArrayEquivalence.INSTANCE, AnyEquivalence.getInstance())
 
    @volatile private var marshaller: Option[Marshaller] = None
@@ -78,7 +79,8 @@ class ClientListenerRegistry(configuration: HotRodServerConfiguration) extends L
    def addClientListener(ch: Channel, h: HotRodHeader, listenerId: Bytes, cache: Cache,
            includeState: Boolean, namedFactories: NamedFactories, useRawData: Boolean): Unit = {
       val eventType = ClientEventType.apply(namedFactories._2.isDefined, useRawData, h.version)
-      val clientEventSender = ClientEventSender(includeState, ch, h.version, cache, listenerId, eventType)
+      val queue = new EventQueue(ch, configuration.events().batchInterval(), configuration.events().batchMaxElements())
+      val clientEventSender = EventListener(includeState, queue, h.version, cache, listenerId, eventType)
       val binaryFilterParams = namedFactories._1.map(_._2).getOrElse(List.empty)
       val binaryConverterParams = namedFactories._2.map(_._2).getOrElse(List.empty)
       val compatEnabled = cache.getCacheConfiguration.compatibility().enabled()
@@ -163,32 +165,61 @@ class ClientListenerRegistry(configuration: HotRodServerConfiguration) extends L
    }
 
    def stop(): Unit = {
-      eventSenders.clear()
+      eventSenders.foreach(_._2.stop())
       cacheEventFilterFactories.clear()
       cacheEventConverterFactories.clear()
    }
 
+   trait EventListener[K, V] {
+      def onCacheEvent(event: CacheEntryEvent[K, V])
+      def stop(): Unit
+   }
+
+   object EventListener {
+      def apply(includeState: Boolean, queue: EventQueue, version: Byte,
+            cache: Cache, listenerId: Bytes, targetEventType: ClientEventType): EventListener[_, _] = {
+         val compatibility = cache.getCacheConfiguration.compatibility()
+         (includeState, compatibility.enabled()) match {
+            case (false, false) =>
+               new StatelessEventListener(queue, listenerId, version, targetEventType)
+            case (true, false) =>
+               new StatefulEventListener(queue, listenerId, version, targetEventType)
+            case (false, true) =>
+               val delegate = new StatelessEventListener(queue, listenerId, version, targetEventType)
+               new StatelessCompatibilityEventListener(delegate, HotRodTypeConverter(compatibility.marshaller()))
+            case (true, true) =>
+               val delegate = new StatelessEventListener(queue, listenerId, version, targetEventType)
+               new StatefulCompatibilityEventListener(delegate, HotRodTypeConverter(compatibility.marshaller()))
+         }
+      }
+   }
+
    @Listener(clustered = true, includeCurrentState = true, sync = false)
-   private class StatefulClientEventSender(ch: Channel, listenerId: Bytes, version: Byte, targetEventType: ClientEventType)
-           extends BaseClientEventSender(ch, listenerId, version, targetEventType)
+   private class StatefulEventListener(queue: EventQueue, listenerId: Bytes, version: Byte, targetEventType: ClientEventType)
+           extends BaseEventListener(queue, listenerId, version, targetEventType: ClientEventType)
 
    @Listener(clustered = true, includeCurrentState = false, sync = false)
-   private class StatelessClientEventSender(ch: Channel, listenerId: Bytes, version: Byte, targetEventType: ClientEventType)
-           extends BaseClientEventSender(ch, listenerId, version, targetEventType)
+   private class StatelessEventListener(queue: EventQueue, listenerId: Bytes, version: Byte, targetEventType: ClientEventType)
+           extends BaseEventListener(queue, listenerId, version, targetEventType: ClientEventType)
 
-   private abstract class BaseClientEventSender(ch: Channel, listenerId: Bytes, version: Byte, targetEventType: ClientEventType) {
+   private abstract class BaseEventListener(queue: EventQueue, listenerId: Bytes, version: Byte, targetEventType: ClientEventType)
+         extends EventListener[Bytes, Bytes] {
       @CacheEntryCreated
       @CacheEntryModified
       @CacheEntryRemoved
-      def onCacheEvent(event: CacheEntryEvent[Bytes, Bytes]) {
-         if (isSendEvent(event)) {
+      override def onCacheEvent(event: CacheEntryEvent[Bytes, Bytes]) {
+         if (isQueueEvent(event)) {
             val dataVersion = event.getMetadata.version().asInstanceOf[NumericVersion].getVersion
-            sendEvent(event.getKey, event.getValue, dataVersion, event)
+            queueEvent(event.getKey, event.getValue, dataVersion, event)
          }
       }
 
-      def isSendEvent(event: CacheEntryEvent[_, _]): Boolean = {
-         if (isChannelDisconnected()) {
+      override def stop(): Unit = {
+         queue.stop() // stop event queue
+      }
+
+      def isQueueEvent(event: CacheEntryEvent[_, _]): Boolean = {
+         if (isChannelDisconnected) {
             log.debug("Channel disconnected, remove event sender listener")
             event.getCache.removeListener(this)
             false
@@ -204,17 +235,17 @@ class ClientListenerRegistry(configuration: HotRodServerConfiguration) extends L
          }
       }
 
-      def isChannelDisconnected(): Boolean = !ch.isOpen
+      def isChannelDisconnected: Boolean = !queue.isOpen
 
-      def sendEvent(key: Bytes, value: Bytes, dataVersion: Long, event: CacheEntryEvent[_, _]) {
+      def queueEvent(key: Bytes, value: Bytes, dataVersion: Long, event: CacheEntryEvent[_, _]) {
          val remoteEvent = createRemoteEvent(key, value, dataVersion, event)
          if (isTraceEnabled)
-            log.tracef("Send %s to remote clients", remoteEvent)
+            log.tracef("Queue %s to remote clients", remoteEvent)
 
-         ch.writeAndFlush(remoteEvent)
+         queue.queueEvent(remoteEvent)
       }
 
-      private def createRemoteEvent(key: Bytes, value: Bytes, dataVersion: Long, event: CacheEntryEvent[_, _]): AnyRef = {
+      private def createRemoteEvent(key: Bytes, value: Bytes, dataVersion: Long, event: CacheEntryEvent[_, _]): Events.Event = {
          messageId.incrementAndGet() // increment message id
          // Embedded listener event implementation implements all interfaces,
          // so can't pattern match on the event instance itself. Instead, pattern
@@ -258,49 +289,52 @@ class ClientListenerRegistry(configuration: HotRodServerConfiguration) extends L
    }
 
    object ClientEventSender {
-      def apply(includeState: Boolean, ch: Channel, version: Byte,
+      def apply(includeState: Boolean, queue: EventQueue, version: Byte,
               cache: Cache, listenerId: Bytes, eventType: ClientEventType): AnyRef = {
          val compatibility = cache.getCacheConfiguration.compatibility()
          (includeState, compatibility.enabled()) match {
             case (false, false) =>
-               new StatelessClientEventSender(ch, listenerId, version, eventType)
+               new StatelessEventListener(queue, listenerId, version, eventType)
             case (true, false) =>
-               new StatefulClientEventSender(ch, listenerId, version, eventType)
+               new StatefulEventListener(queue, listenerId, version, eventType)
             case (false, true) =>
-               val delegate = new StatelessClientEventSender(ch, listenerId, version, eventType)
-               new StatelessCompatibilityClientEventSender(delegate, HotRodTypeConverter(compatibility.marshaller()))
+               val delegate = new StatelessEventListener(queue, listenerId, version, eventType)
+               new StatelessCompatibilityEventListener(delegate, HotRodTypeConverter(compatibility.marshaller()))
             case (true, true) =>
-               val delegate = new StatelessClientEventSender(ch, listenerId, version, eventType)
-               new StatefulCompatibilityClientEventSender(delegate, HotRodTypeConverter(compatibility.marshaller()))
+               val delegate = new StatelessEventListener(queue, listenerId, version, eventType)
+               new StatefulCompatibilityEventListener(delegate, HotRodTypeConverter(compatibility.marshaller()))
          }
       }
    }
 
    @Listener(clustered = true, includeCurrentState = true, sync = false)
-   private class StatefulCompatibilityClientEventSender(
-           delegate: BaseClientEventSender, converter: HotRodTypeConverter)
+   private class StatefulCompatibilityEventListener(
+           delegate: BaseEventListener, converter: HotRodTypeConverter)
       extends BaseCompatibilityClientEventSender(delegate, converter)
 
    @Listener(clustered = true, includeCurrentState = false, sync = false)
-   private class StatelessCompatibilityClientEventSender(
-           delegate: BaseClientEventSender, converter: HotRodTypeConverter)
+   private class StatelessCompatibilityEventListener(
+           delegate: BaseEventListener, converter: HotRodTypeConverter)
            extends BaseCompatibilityClientEventSender(delegate, converter)
 
    private abstract class BaseCompatibilityClientEventSender(
-           delegate: BaseClientEventSender, converter: HotRodTypeConverter) {
+           delegate: BaseEventListener, converter: HotRodTypeConverter)
+         extends EventListener[AnyRef, AnyRef] {
       @CacheEntryCreated
       @CacheEntryModified
       @CacheEntryRemoved
       def onCacheEvent(event: CacheEntryEvent[AnyRef, AnyRef]) {
          val key = converter.unboxKey(event.getKey)
          val value = converter.unboxValue(event.getValue)
-         if (delegate.isSendEvent(event)) {
+         if (delegate.isQueueEvent(event)) {
             // In compatibility mode, version could be null if stored via embedded
             val version = event.getMetadata.version()
             val dataVersion = if (version == null) 0 else version.asInstanceOf[NumericVersion].getVersion
-            delegate.sendEvent(key.asInstanceOf[Array[Byte]], value.asInstanceOf[Array[Byte]], dataVersion, event)
+            delegate.queueEvent(key.asInstanceOf[Array[Byte]], value.asInstanceOf[Array[Byte]], dataVersion, event)
          }
       }
+
+      def stop(): Unit = delegate.stop()
    }
 
    private class UnmarshallFilterFactory(filterFactory: CacheEventFilterFactory, marshaller: Marshaller)
@@ -448,6 +482,46 @@ object ClientListenerRegistry extends Constants {
          Set[java.lang.Class[_ <: UnmarshallFilterConverter]](classOf[UnmarshallFilterConverter]))
    }
 
+   private class EventQueue(ch: Channel, interval: Long, maxElements: Int) extends Log {
+      private val flushExecutor = Executors.newSingleThreadScheduledExecutor(
+         new DefaultThreadFactory(null, Thread.MIN_PRIORITY, null, ch.remoteAddress().toString, "event-batch"))
+      private val events = new LinkedBlockingQueue[Events.Event]
+
+      // Constructor
+      flushExecutor.scheduleWithFixedDelay(new Runnable {
+         override def run(): Unit = {
+            tracef("Flush event queue since interval %s milliseconds has expired", interval)
+            flush()
+         }
+      }, interval, interval, TimeUnit.MILLISECONDS)
+
+      def stop(): Unit = {
+         flushExecutor.shutdown()
+         ch.disconnect() // disconnect client connection
+      }
+
+      def queueEvent(e: Events.Event): Unit = {
+         events.put(e)
+         val size = events.size()
+         if (size >= maxElements) {
+            tracef("Flush event queue since size %s exceeds %s", size, maxElements)
+            flush()
+         }
+      }
+
+      def isOpen: Boolean = ch.isOpen
+
+      private def flush(): Unit = {
+         this.synchronized {
+            val eventsToFlush = new java.util.LinkedList[Events.Event]
+            events.drainTo(eventsToFlush)
+            if (eventsToFlush.size() > 0) {
+               eventsToFlush.foreach(ch.write(_))
+               ch.flush()
+            }
+         }
+      }
+   }
 
 }
 
