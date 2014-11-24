@@ -76,6 +76,7 @@ class HotRodSubsystemAdd extends ProtocolServiceSubsystemAdd {
       configureProtocolServerAuthentication(configurationBuilder, config);
       configureProtocolServerEncryption(configurationBuilder, config);
       configureProtocolServerTopology(configurationBuilder, config);
+      configureProtocolServerEvents(configurationBuilder, config);
       // Create the service
       final ProtocolServerService service = new ProtocolServerService(getServiceName(operation), HotRodServer.class, configurationBuilder);
 
@@ -168,6 +169,18 @@ class HotRodSubsystemAdd extends ProtocolServiceSubsystemAdd {
          }
          if (config.hasDefined(ModelKeys.AWAIT_INITIAL_RETRIEVAL)) {
             builder.topologyAwaitInitialTransfer(config.get(ModelKeys.AWAIT_INITIAL_RETRIEVAL).asBoolean());
+         }
+      }
+   }
+
+   private void configureProtocolServerEvents(HotRodServerConfigurationBuilder builder, ModelNode config) {
+      if (config.hasDefined(ModelKeys.EVENTS) && config.get(ModelKeys.EVENTS, ModelKeys.EVENTS_NAME).isDefined()) {
+         config = config.get(ModelKeys.EVENTS, ModelKeys.EVENTS_NAME);
+         if (config.hasDefined(ModelKeys.BATCH_INTERVAL)) {
+            builder.events().batchInterval(config.get(ModelKeys.BATCH_INTERVAL).asLong());
+         }
+         if (config.hasDefined(ModelKeys.BATCH_MAX_ELEMENTS)) {
+            builder.events().batchMaxElements(config.get(ModelKeys.BATCH_MAX_ELEMENTS).asInt());
          }
       }
    }

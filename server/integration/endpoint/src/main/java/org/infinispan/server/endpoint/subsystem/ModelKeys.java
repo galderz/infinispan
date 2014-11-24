@@ -46,6 +46,8 @@ public class ModelKeys {
    public static final String AUTH_METHOD = "auth-method"; // string
    public static final String SECURITY_MODE = "security-mode"; // string
    public static final String EXTENDED_HEADERS = "extended-headers"; //enum
+   public static final String BATCH_INTERVAL = "batch-interval"; // long
+   public static final String BATCH_MAX_ELEMENTS = "batch-max-elements"; // integer
 
    public static final String TOPOLOGY_STATE_TRANSFER_NAME = "TOPOLOGY_STATE_TRANSFER";
    public static final String TOPOLOGY_STATE_TRANSFER = "topology-state-transfer";
@@ -61,6 +63,8 @@ public class ModelKeys {
    public static final String AUTHENTICATION = "authentication";
    public static final String ENCRYPTION_NAME = "ENCRYPTION";
    public static final String ENCRYPTION = "encryption";
+   public static final String EVENTS_NAME = "EVENTS";
+   public static final String EVENTS = "events";
    public static final String SASL_NAME = "SASL";
    public static final String SASL = "sasl";
    public static final String SASL_POLICY_NAME = "SASL_POLICY";

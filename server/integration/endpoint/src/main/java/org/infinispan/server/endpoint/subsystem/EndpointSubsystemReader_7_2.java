@@ -116,6 +116,10 @@ class EndpointSubsystemReader_7_2 implements XMLStreamConstants, XMLElementReade
             parseAuthentication(reader, connector, operations);
             break;
          }
+         case EVENTS: {
+            parseEvents(reader, connector, operations);
+            break;
+         }
          case ENCRYPTION: {
             parseEncryption(reader, connector, operations);
             break;
@@ -385,6 +389,33 @@ class EndpointSubsystemReader_7_2 implements XMLStreamConstants, XMLElementReade
          }
          }
       }
+   }
+
+   private void parseEvents(XMLExtendedStreamReader reader, ModelNode connector, List<ModelNode> operations) throws XMLStreamException {
+      PathAddress address = PathAddress.pathAddress(connector.get(OP_ADDR)).append(
+            PathElement.pathElement(ModelKeys.EVENTS, ModelKeys.EVENTS_NAME));
+      ModelNode events = Util.createAddOperation(address);
+
+      for (int i = 0; i < reader.getAttributeCount(); i++) {
+         ParseUtils.requireNoNamespaceAttribute(reader, i);
+         String value = reader.getAttributeValue(i);
+         Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
+         switch (attribute) {
+            case BATCH_INTERVAL: {
+               EventsResource.BATCH_INTERVAL.parseAndSetParameter(value, events, reader);
+               break;
+            }
+            case BATCH_MAX_ELEMENTS: {
+               EventsResource.BATCH_MAX_ELEMENTS.parseAndSetParameter(value, events, reader);
+               break;
+            }
+            default: {
+               ParseUtils.unexpectedAttribute(reader, i);
+            }
+         }
+      }
+      ParseUtils.requireNoContent(reader);
+      operations.add(events);
    }
 
    private void parseSasl(final XMLExtendedStreamReader reader, final ModelNode authentication, final List<ModelNode> list) throws XMLStreamException {

@@ -19,6 +19,11 @@ public abstract class AbstractHotRodServerChildConfigurationBuilder implements H
    }
 
    @Override
+   public EventsConfigurationBuilder events() {
+      return builder.events();
+   }
+
+   @Override
    public HotRodServerChildConfigurationBuilder proxyHost(String proxyHost) {
       return builder.proxyHost(proxyHost);
    }
