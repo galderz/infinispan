@@ -262,7 +262,7 @@ abstract class AbstractProtocolDecoder[K, V](secure: Boolean, transport: NettyTr
       super.actualReadableBytes()
    }
 
-   private def putIfAbsent: AnyRef = {     ClientListenerRegistry.scala
+   private def putIfAbsent: AnyRef = {
       var prev = cache.get(key)
       if (prev == null) { // Generate new version only if key not present
          prev = cache.putIfAbsent(key, createValue(), buildMetadata())
