@@ -99,7 +99,7 @@ class ClientListenerRegistry(configuration: HotRodServerConfiguration) extends L
       }
 
       eventSenders.put(listenerId, clientEventSender)
-      cache.addListener(clientEventSender, filter.orNull, converter.orNull)
+      cache.addListener(clientEventSender, filter.orNull, converter.getOrElse(SlimmingConverter.Singleton))
    }
 
    def getFilter(name: String, compatEnabled: Boolean, useRawData: Boolean, binaryParams: List[Bytes]): CacheEventFilter[Bytes, Bytes] = {
@@ -288,25 +288,6 @@ class ClientListenerRegistry(configuration: HotRodServerConfiguration) extends L
 
    }
 
-   object ClientEventSender {
-      def apply(includeState: Boolean, queue: EventQueue, version: Byte,
-              cache: Cache, listenerId: Bytes, eventType: ClientEventType): AnyRef = {
-         val compatibility = cache.getCacheConfiguration.compatibility()
-         (includeState, compatibility.enabled()) match {
-            case (false, false) =>
-               new StatelessEventListener(queue, listenerId, version, eventType)
-            case (true, false) =>
-               new StatefulEventListener(queue, listenerId, version, eventType)
-            case (false, true) =>
-               val delegate = new StatelessEventListener(queue, listenerId, version, eventType)
-               new StatelessCompatibilityEventListener(delegate, HotRodTypeConverter(compatibility.marshaller()))
-            case (true, true) =>
-               val delegate = new StatelessEventListener(queue, listenerId, version, eventType)
-               new StatefulCompatibilityEventListener(delegate, HotRodTypeConverter(compatibility.marshaller()))
-         }
-      }
-   }
-
    @Listener(clustered = true, includeCurrentState = true, sync = false)
    private class StatefulCompatibilityEventListener(
            delegate: BaseEventListener, converter: HotRodTypeConverter)
@@ -379,6 +360,22 @@ object ClientListenerRegistry extends Constants {
             case (true, _) => CustomPlain
             case (false, _) => Plain
          }
+      }
+   }
+
+   private class UnmarshallFilterFactory(filterFactory: CacheEventFilterFactory, marshaller: Marshaller)
+         extends CacheEventFilterFactory {
+      override def getFilter[K, V](params: Array[AnyRef]): CacheEventFilter[K, V] = {
+         new UnmarshallFilter(filterFactory.getFilter(params), marshaller)
+               .asInstanceOf[CacheEventFilter[K, V]]
+      }
+   }
+
+   private class UnmarshallConverterFactory(converterFactory: CacheEventConverterFactory, marshaller: Marshaller)
+         extends CacheEventConverterFactory {
+      override def getConverter[K, V, C](params: Array[AnyRef]): CacheEventConverter[K, V, C] = {
+         new UnmarshallConverter(converterFactory.getConverter(params), marshaller)
+               .asInstanceOf[CacheEventConverter[K, V, C]] // ugly but it works :|
       }
    }
 
@@ -520,6 +517,29 @@ object ClientListenerRegistry extends Constants {
                ch.flush()
             }
          }
+      }
+   }
+
+   /**
+    * A slimming converter for default events which converts an event's value
+    * into an empty byte array. Default remote events don't provide value,
+    * so by using this converter the shipment of values between nodes is
+    * avoided since they are not used by default. This converter will not be
+    * used when the user remote events work with custom events.
+    */
+   class SlimmingConverter extends CacheEventConverter[Bytes, Bytes, Bytes] with Serializable {
+      override def convert(k: Bytes, oldV: Bytes, oldM: Metadata, newV: Bytes, newM: Metadata, eType: EventType): Bytes =
+         SlimmingConverter.EmptyBytes
+   }
+
+   object SlimmingConverter {
+      val EmptyBytes = Array.empty[Byte]
+      val Singleton = new SlimmingConverter()
+
+      class Externalizer extends AbstractExternalizer[SlimmingConverter] {
+         override def getTypeClasses = setAsJavaSet(Set[java.lang.Class[_ <: SlimmingConverter]](classOf[SlimmingConverter]))
+         override def readObject(input: ObjectInput): SlimmingConverter = Singleton
+         override def writeObject(output: ObjectOutput, `object`: SlimmingConverter): Unit = {}
       }
    }
 
