@@ -1,6 +1,8 @@
 package org.infinispan.interceptors.distribution;
 
 import org.infinispan.commands.FlagAffectedCommand;
+import org.infinispan.commands.functional.EvalKeyReadOnlyCommand;
+import org.infinispan.commands.functional.EvalKeyWriteCommand;
 import org.infinispan.commands.read.AbstractDataCommand;
 import org.infinispan.commands.read.GetCacheEntryCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
@@ -53,6 +55,17 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
    }
 
    @Override
+   public Object visitEvalReadOnlyCommand(InvocationContext ctx, EvalKeyReadOnlyCommand command) throws Throwable {
+      try {
+         return visitRemoteFetchingCommand(ctx, command, false);
+      }
+      catch (SuspectException e) {
+         //retry
+         return visitEvalReadOnlyCommand(ctx, command);
+      }
+   }
+
+   @Override
    public Object visitGetCacheEntryCommand(InvocationContext ctx, GetCacheEntryCommand command) throws Throwable {
       try {
          return visitRemoteFetchingCommand(ctx, command, true);
@@ -90,6 +103,11 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
 
    @Override
    public Object visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
+      return handleNonTxWriteCommand(ctx, command);
+   }
+
+   @Override
+   public Object visitEvalWriteCommand(InvocationContext ctx, EvalKeyWriteCommand command) throws Throwable {
       return handleNonTxWriteCommand(ctx, command);
    }
 

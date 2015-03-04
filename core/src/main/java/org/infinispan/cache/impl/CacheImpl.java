@@ -7,6 +7,7 @@ import org.infinispan.batch.BatchContainer;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.control.LockControlCommand;
+import org.infinispan.commands.functional.EvalKeyReadOnlyCommand;
 import org.infinispan.commands.read.EntryRetrievalCommand;
 import org.infinispan.commands.read.EntrySetCommand;
 import org.infinispan.commands.read.GetCacheEntryCommand;
@@ -26,6 +27,11 @@ import org.infinispan.commands.write.ValueMatcher;
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.api.BasicCacheContainer;
+import org.infinispan.commons.api.functional.FunCache;
+import org.infinispan.commons.api.functional.FunEntry;
+import org.infinispan.commons.api.functional.Mode;
+import org.infinispan.commons.api.functional.Modes;
+import org.infinispan.commons.api.functional.Modes.AccessMode;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.CloseableIterable;
 import org.infinispan.commons.util.CloseableIteratorCollection;
@@ -99,10 +105,12 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.infinispan.context.Flag.*;
@@ -119,7 +127,7 @@ import static org.infinispan.factories.KnownComponentNames.CACHE_MARSHALLER;
  */
 @SurvivesRestarts
 @MBean(objectName = CacheImpl.OBJECT_NAME, description = "Component that represents an individual cache instance.")
-public class CacheImpl<K, V> implements AdvancedCache<K, V> {
+public class CacheImpl<K, V> implements AdvancedCache<K, V>, FunCache<K,V> {
    public static final String OBJECT_NAME = "Cache";
    protected InvocationContextContainer icc;
    protected InvocationContextFactory invocationContextFactory;
@@ -1724,4 +1732,16 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    public Properties getConfigurationAsProperties() {
       return new PropertyFormatter().format(config);
    }
+
+   @Override
+   public <T> CompletableFuture<T> eval(K key, AccessMode mode, Function<FunEntry<V>, T> f) {
+      VisitableCommand cmd = mode == AccessMode.READ_ONLY
+         ? commandsFactory.buildEvalKeyReadOnlyCommand(key, f)
+         : commandsFactory.buildEvalKeyWriteCommand(key, f, mode);
+
+      InvocationContext ctx = getInvocationContextWithImplicitTransaction(false, null, 1);
+      return CompletableFuture.supplyAsync(
+            () -> (T) executeCommandAndCommitIfNeeded(ctx, cmd));
+   }
+
 }

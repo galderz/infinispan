@@ -2,7 +2,12 @@ package org.infinispan.util.mocks;
 
 import org.infinispan.Cache;
 import org.infinispan.commands.VisitableCommand;
+import org.infinispan.commands.functional.EvalKeyReadOnlyCommand;
+import org.infinispan.commands.functional.EvalKeyWriteCommand;
 import org.infinispan.commands.read.EntryRetrievalCommand;
+import org.infinispan.commons.api.functional.FunEntry;
+import org.infinispan.commons.api.functional.Modes;
+import org.infinispan.commons.api.functional.Modes.AccessMode;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.commands.remote.GetKeysInGroupCommand;
 import org.infinispan.iteration.impl.EntryRequestCommand;
@@ -69,6 +74,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 import static org.infinispan.xsite.XSiteAdminCommand.*;
 import static org.infinispan.xsite.statetransfer.XSiteStateTransferControlCommand.*;
@@ -381,6 +387,16 @@ public class ControlledCommandFactory implements CommandsFactory {
    @Override
    public GetCacheEntryCommand buildGetCacheEntryCommand(Object key, Set<Flag> explicitFlags) {
       return actual.buildGetCacheEntryCommand(key, explicitFlags);
+   }
+
+   @Override
+   public <V, T> EvalKeyReadOnlyCommand buildEvalKeyReadOnlyCommand(Object key, Function<FunEntry<V>, T> f) {
+      return actual.buildEvalKeyReadOnlyCommand(key, f);
+   }
+
+   @Override
+   public <V, T> EvalKeyWriteCommand buildEvalKeyWriteCommand(Object key, Function<FunEntry<V>, T> f, AccessMode accessMode) {
+      return actual.buildEvalKeyWriteCommand(key, f, accessMode);
    }
 
 }
