@@ -7,7 +7,6 @@ import org.infinispan.batch.BatchContainer;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.control.LockControlCommand;
-import org.infinispan.commands.functional.EvalKeyReadOnlyCommand;
 import org.infinispan.commands.read.EntryRetrievalCommand;
 import org.infinispan.commands.read.EntrySetCommand;
 import org.infinispan.commands.read.GetCacheEntryCommand;
@@ -27,13 +26,14 @@ import org.infinispan.commands.write.ValueMatcher;
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.api.BasicCacheContainer;
+import org.infinispan.commons.api.functional.CacheFunction;
 import org.infinispan.commons.api.functional.FunCache;
-import org.infinispan.commons.api.functional.FunEntry;
 import org.infinispan.commons.api.functional.Mode;
-import org.infinispan.commons.api.functional.Modes;
-import org.infinispan.commons.api.functional.Modes.AccessMode;
+import org.infinispan.commons.api.functional.Mode.AccessMode;
+import org.infinispan.commons.api.functional.Pair;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.CloseableIterable;
+import org.infinispan.commons.util.CloseableIterator;
 import org.infinispan.commons.util.CloseableIteratorCollection;
 import org.infinispan.commons.util.CloseableIteratorSet;
 import org.infinispan.commons.util.Util;
@@ -102,6 +102,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -110,6 +111,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -1734,7 +1736,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V>, FunCache<K,V> {
    }
 
    @Override
-   public <T> CompletableFuture<T> eval(K key, AccessMode mode, Function<FunEntry<V>, T> f) {
+   public <T> CompletableFuture<T> eval(K key, AccessMode mode, CacheFunction<V, T> f) {
       VisitableCommand cmd = mode == AccessMode.READ_ONLY
          ? commandsFactory.buildEvalKeyReadOnlyCommand(key, f)
          : commandsFactory.buildEvalKeyWriteCommand(key, f, mode);
@@ -1743,5 +1745,67 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V>, FunCache<K,V> {
       return CompletableFuture.supplyAsync(
             () -> (T) executeCommandAndCommitIfNeeded(ctx, cmd));
    }
+
+   @Override
+   public <T> CompletableFuture<Optional<T>> search(Mode.StreamMode mode, Function<Pair<? super K, ? super V>, ? extends T> f) {
+      // FIXME: Add support for KEYS_ONLY and KEYS_AND_VALUES
+      switch (mode) {
+         case VALUES_ONLY:
+            return CompletableFuture.supplyAsync(() -> valuesOnlySearch(f));
+         default:
+            return null;
+      }
+   }
+
+   private <T> Optional<T> valuesOnlySearch(Function<Pair<? super K, ? super V>, ? extends T> f) {
+      try (CloseableIterator<V> it = values().iterator()) {
+         while (it.hasNext()) {
+            V next = it.next();
+            T applied = f.apply(Pairs.ofValue(next));
+            if (applied != null)
+               return Optional.of(applied);
+         }
+      }
+      return Optional.empty();
+   }
+
+   @Override
+   public <T> CompletableFuture<T> fold(Mode.StreamMode mode, T z, BiFunction<Pair<? super K, ? super V>, ? super T, ? extends T> f) {
+      // FIXME: Add support for KEYS_ONLY and KEYS_AND_VALUES
+      switch (mode) {
+         case KEYS_ONLY:
+            return CompletableFuture.supplyAsync(() -> keysOnlyFold(z, f));
+         default:
+            return null;
+      }
+   }
+
+   public <T> T keysOnlyFold(T z, BiFunction<Pair<? super K, ? super V>, ? super T, ? extends T> f) {
+      T acc = z;
+      try (CloseableIterator<K> it = keySet().iterator()) {
+         while (it.hasNext()) {
+            K next = it.next();
+            acc = f.apply(Pairs.ofKey(next), acc);
+         }
+      }
+      return acc;
+   }
+
+//   @Override
+//   public <T> CompletableFuture<Optional<? extends T>> searchValues(Function<? super V, Optional<? extends T>> f) {
+//      return CompletableFuture.supplyAsync(() -> valuesOnlySearch(f));
+//   }
+//
+//   private <T> Optional<? extends T> valuesOnlySearch(Function<? super V, Optional<? extends T>> f) {
+//      try(CloseableIterator<V> it = values().iterator()) {
+//         while(it.hasNext()) {
+//            V next = it.next();
+//            Optional<? extends T> applied = f.apply(next);
+//            if (applied.isPresent())
+//               return applied;
+//         }
+//      }
+//      return Optional.empty();
+//   }
 
 }

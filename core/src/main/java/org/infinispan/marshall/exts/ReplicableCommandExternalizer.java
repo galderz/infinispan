@@ -4,6 +4,7 @@ import org.infinispan.atomic.DeltaAware;
 import org.infinispan.commands.RemoteCommandsFactory;
 import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.TopologyAffectedCommand;
+import org.infinispan.commands.functional.EvalKeyWriteCommand;
 import org.infinispan.commands.read.DistributedExecuteCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.commands.remote.CacheRpcCommand;
@@ -120,7 +121,8 @@ public class ReplicableCommandExternalizer extends AbstractExternalizer<Replicab
             InvalidateCommand.class, InvalidateL1Command.class,
             PutKeyValueCommand.class,
             PutMapCommand.class, RemoveCommand.class,
-            ReplaceCommand.class, GetKeysInGroupCommand.class);
+            ReplaceCommand.class, GetKeysInGroupCommand.class,
+            EvalKeyWriteCommand.class);
       // Search only those commands that replicable and not cache specific replicable commands
       Collection<Class<? extends ReplicableCommand>> moduleCommands = globalComponentRegistry.getModuleProperties().moduleOnlyReplicableCommands();
       if (moduleCommands != null && !moduleCommands.isEmpty()) coreCommands.addAll(moduleCommands);

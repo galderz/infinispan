@@ -57,12 +57,32 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
    @Override
    public Object visitEvalReadOnlyCommand(InvocationContext ctx, EvalKeyReadOnlyCommand command) throws Throwable {
       try {
-         return visitRemoteFetchingCommand(ctx, command, false);
+         Object returnValue = invokeNextInterceptor(ctx, command);
+         if (isEmptyReturn(returnValue)) {
+            Object key = command.getKey();
+            if (needsRemoteGet(ctx, command)) {
+               InternalCacheEntry remoteEntry = remoteGetCacheEntry(ctx, key, command);
+               returnValue = command.perform(remoteEntry);
+            }
+            if (returnValue == null) {
+               InternalCacheEntry localEntry = fetchValueLocallyIfAvailable(dm.getReadConsistentHash(), key);
+               if (localEntry != null && wrapInternalCacheEntry(localEntry, ctx, key, false, command)) {
+                  returnValue = command.perform(ctx);
+               } else {
+                  returnValue = command.perform(localEntry);
+               }
+            }
+         }
+         return returnValue;
       }
       catch (SuspectException e) {
          //retry
          return visitEvalReadOnlyCommand(ctx, command);
       }
+   }
+
+   private boolean isEmptyReturn(Object returnValue) {
+      return returnValue == null || returnValue.equals(Optional.empty());
    }
 
    @Override
@@ -184,14 +204,17 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
       return null;
    }
 
-   private void wrapInternalCacheEntry(InternalCacheEntry ice, InvocationContext ctx, Object key, boolean isWrite,
+   private boolean wrapInternalCacheEntry(InternalCacheEntry ice, InvocationContext ctx, Object key, boolean isWrite,
                                        FlagAffectedCommand command) {
       if (!ctx.replaceValue(key, ice))  {
          if (isWrite)
             entryFactory.wrapEntryForPut(ctx, key, ice, false, command, true);
          else
             ctx.putLookedUpEntry(key, ice);
+
+         return true;
       }
+      return false;
    }
 
    private <T extends FlagAffectedCommand & RemoteFetchingCommand> InternalCacheEntry remoteGetCacheEntry(InvocationContext ctx, Object key, T command) throws Throwable {

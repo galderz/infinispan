@@ -1,25 +1,21 @@
 package org.infinispan.commands.functional;
 
-import org.infinispan.cache.impl.FunEntryImpl;
+import org.infinispan.cache.impl.Values;
 import org.infinispan.commands.Visitor;
 import org.infinispan.commands.write.AbstractDataWriteCommand;
 import org.infinispan.commands.write.ValueMatcher;
-import org.infinispan.commons.api.functional.FunEntry;
-import org.infinispan.commons.api.functional.Modes;
-import org.infinispan.commons.api.functional.Modes.AccessMode;
+import org.infinispan.commons.api.functional.CacheFunction;
+import org.infinispan.commons.api.functional.Mode.AccessMode;
+import org.infinispan.commons.api.functional.Value;
 import org.infinispan.container.entries.CacheEntry;
-import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
-
-import java.util.Set;
-import java.util.function.Function;
 
 // Command for READ_WRITE and WRITE_ONLY commands
 public class EvalKeyWriteCommand<V, T> extends AbstractDataWriteCommand {
 
    public static final byte COMMAND_ID = 47;
 
-   private Function<FunEntry<V>, T> f;
+   private CacheFunction<V, T> f;
    private AccessMode accessMode;
    private ValueMatcher valueMatcher;
    boolean successful = true;
@@ -27,16 +23,12 @@ public class EvalKeyWriteCommand<V, T> extends AbstractDataWriteCommand {
    public EvalKeyWriteCommand() {
    }
 
-   public EvalKeyWriteCommand(Object key, Function<FunEntry<V>, T> f, AccessMode accessMode) {
+   public EvalKeyWriteCommand(Object key, CacheFunction<V, T> f, AccessMode accessMode) {
       super(key, null);
       this.f = f;
       this.accessMode = accessMode;
       this.valueMatcher = accessMode == AccessMode.WRITE_ONLY
             ? ValueMatcher.MATCH_ALWAYS : ValueMatcher.MATCH_EXPECTED;
-   }
-
-   public void setParameters(int commandId, Object[] parameters) {
-      // No-op
    }
 
    @Override
@@ -48,9 +40,10 @@ public class EvalKeyWriteCommand<V, T> extends AbstractDataWriteCommand {
       }
 
       CacheEntry<Object, V> entry = ctx.lookupEntry(key);
-      FunEntryImpl<Object, V> funEntry = new FunEntryImpl<>(entry);
-      Object ret = f.apply(funEntry);
+      if (entry == null) return null;
 
+      Value<V> funEntry = Values.of(entry);
+      Object ret = f.apply(funEntry);
       return valueMatcher != ValueMatcher.MATCH_EXPECTED_OR_NEW ? ret : null;
    }
 
@@ -61,7 +54,13 @@ public class EvalKeyWriteCommand<V, T> extends AbstractDataWriteCommand {
 
    @Override
    public Object[] getParameters() {
-      return new Object[0];
+      return new Object[]{key, f, valueMatcher};
+   }
+
+   public void setParameters(int commandId, Object[] parameters) {
+      key = parameters[0];
+      f = (CacheFunction<V, T>) parameters[1];
+      valueMatcher = (ValueMatcher) parameters[2];
    }
 
    @Override

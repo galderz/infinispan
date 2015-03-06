@@ -4,9 +4,8 @@ import org.infinispan.Cache;
 import org.infinispan.commands.functional.EvalKeyReadOnlyCommand;
 import org.infinispan.commands.functional.EvalKeyWriteCommand;
 import org.infinispan.commands.read.EntryRetrievalCommand;
-import org.infinispan.commons.api.functional.FunEntry;
-import org.infinispan.commons.api.functional.Modes;
-import org.infinispan.commons.api.functional.Modes.AccessMode;
+import org.infinispan.commons.api.functional.CacheFunction;
+import org.infinispan.commons.api.functional.Mode.AccessMode;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.commands.remote.GetKeysInGroupCommand;
 import org.infinispan.context.InvocationContextFactory;
@@ -106,7 +105,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.function.Function;
 
 import static org.infinispan.xsite.XSiteAdminCommand.*;
 import static org.infinispan.xsite.statetransfer.XSiteStateTransferControlCommand.*;
@@ -642,12 +640,12 @@ public class CommandsFactoryImpl implements CommandsFactory {
    }
 
    @Override
-   public <V, T> EvalKeyReadOnlyCommand buildEvalKeyReadOnlyCommand(Object key, Function<FunEntry<V>, T> f) {
+   public <V, T> EvalKeyReadOnlyCommand buildEvalKeyReadOnlyCommand(Object key, CacheFunction<V, T> f) {
       return new EvalKeyReadOnlyCommand(key, f);
    }
 
    @Override
-   public <V, T> EvalKeyWriteCommand buildEvalKeyWriteCommand(Object key, Function<FunEntry<V>, T> f, AccessMode accessMode) {
+   public <V, T> EvalKeyWriteCommand buildEvalKeyWriteCommand(Object key, CacheFunction<V, T> f, AccessMode accessMode) {
       return new EvalKeyWriteCommand(key, f, accessMode);
    }
 
