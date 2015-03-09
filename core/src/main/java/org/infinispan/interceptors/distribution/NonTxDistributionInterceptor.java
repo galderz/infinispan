@@ -1,6 +1,7 @@
 package org.infinispan.interceptors.distribution;
 
 import org.infinispan.commands.FlagAffectedCommand;
+import org.infinispan.commands.functional.EvalAllWriteCommand;
 import org.infinispan.commands.functional.EvalKeyReadOnlyCommand;
 import org.infinispan.commands.functional.EvalKeyWriteCommand;
 import org.infinispan.commands.read.AbstractDataCommand;
@@ -55,7 +56,7 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
    }
 
    @Override
-   public Object visitEvalReadOnlyCommand(InvocationContext ctx, EvalKeyReadOnlyCommand command) throws Throwable {
+   public Object visitEvalKeyReadOnlyCommand(InvocationContext ctx, EvalKeyReadOnlyCommand command) throws Throwable {
       try {
          Object returnValue = invokeNextInterceptor(ctx, command);
          if (isEmptyReturn(returnValue)) {
@@ -77,7 +78,7 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
       }
       catch (SuspectException e) {
          //retry
-         return visitEvalReadOnlyCommand(ctx, command);
+         return visitEvalKeyReadOnlyCommand(ctx, command);
       }
    }
 
@@ -127,7 +128,12 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
    }
 
    @Override
-   public Object visitEvalWriteCommand(InvocationContext ctx, EvalKeyWriteCommand command) throws Throwable {
+   public Object visitEvalKeyWriteCommand(InvocationContext ctx, EvalKeyWriteCommand command) throws Throwable {
+      return handleNonTxWriteCommand(ctx, command);
+   }
+
+   @Override
+   public Object visitEvalAllWriteCommand(InvocationContext ctx, EvalAllWriteCommand command) throws Throwable {
       return handleNonTxWriteCommand(ctx, command);
    }
 

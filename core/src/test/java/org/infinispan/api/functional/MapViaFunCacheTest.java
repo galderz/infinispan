@@ -6,9 +6,14 @@ import org.infinispan.test.SingleCacheManagerTest;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 import static org.infinispan.commons.api.functional.Mode.AccessMode.*;
 import static org.infinispan.decorators.Futures.*;
@@ -45,6 +50,13 @@ public class MapViaFunCacheTest extends SingleCacheManagerTest {
       assertEquals("uno", map.get(1));
    }
 
+   public void testGetAndRemove() {
+      assertEquals(null, map.put(1, "one"));
+      assertEquals("one", map.get(1));
+      assertEquals("one", map.remove(1));
+      assertEquals(null, map.get(1));
+   }
+
    public void testContainsKey() {
       assertEquals(false, map.containsKey(1));
       assertEquals(null, map.put(1, "one"));
@@ -67,6 +79,66 @@ public class MapViaFunCacheTest extends SingleCacheManagerTest {
       assertEquals(3, map.size());
    }
 
+   public void testEmpty() {
+      assertEquals(true, map.isEmpty());
+      assertEquals(null, map.put(1, "one"));
+      assertEquals("one", map.get(1));
+      assertEquals(false, map.isEmpty());
+      assertEquals("one", map.remove(1));
+      assertEquals(true, map.isEmpty());
+   }
+
+   public void testPutAll() {
+      assertEquals(true, map.isEmpty());
+      Map<Integer, String> data = new HashMap<>();
+      data.put(1, "one");
+      data.put(2, "two");
+      data.put(3, "three");
+      map.putAll(data);
+      assertEquals("one", map.get(1));
+      assertEquals("two", map.get(2));
+      assertEquals("three", map.get(3));
+   }
+
+   public void testClear() {
+      assertEquals(true, map.isEmpty());
+      Map<Integer, String> data = new HashMap<>();
+      data.put(1, "one");
+      data.put(2, "two");
+      data.put(3, "three");
+      map.putAll(data);
+      map.clear();
+      assertEquals(null, map.get(1));
+      assertEquals(null, map.get(2));
+      assertEquals(null, map.get(3));
+   }
+
+   public void testKeyValueAndEntrySets() {
+      assertEquals(true, map.isEmpty());
+      Map<Integer, String> data = new HashMap<>();
+      data.put(1, "one");
+      data.put(2, "two");
+      data.put(3, "three");
+      map.putAll(data);
+
+      Set<Integer> keys = map.keySet();
+      assertEquals(3, keys.size());
+      Set<Integer> expectedKeys = new HashSet<>(Arrays.asList(1, 2, 3));
+      keys.forEach(expectedKeys::remove);
+      assertEquals(true, expectedKeys.isEmpty());
+
+      Collection<String> values = map.values();
+      assertEquals(3, values.size());
+      Set<String> expectedValues = new HashSet<>(Arrays.asList("one", "two", "three"));
+      values.forEach(expectedValues::remove);
+      assertEquals(true, expectedValues.isEmpty());
+
+      Set<Map.Entry<Integer, String>> entries = map.entrySet();
+      assertEquals(3, entries.size());
+      entries.removeAll(data.entrySet());
+      assertEquals(true, entries.isEmpty());
+   }
+
    private static class TestMapDecorator<K, V> implements Map<K, V> {
       final FunCache<K, V> cache;
 
@@ -76,12 +148,16 @@ public class MapViaFunCacheTest extends SingleCacheManagerTest {
 
       @Override
       public int size() {
+         // FIXME: Could be more efficient with a potential StreamMode.NONE
          return await(cache.fold(StreamMode.KEYS_ONLY, 0, (p, t) -> t + 1));
       }
 
       @Override
       public boolean isEmpty() {
-         return false;  // TODO: Customise this generated block
+         // Finishes early, as soon as an entry is found
+         return !await(cache.search(StreamMode.VALUES_ONLY,
+               (p) -> p.value().isPresent() ? true : null)
+         ).isPresent();
       }
 
       @Override
@@ -91,6 +167,7 @@ public class MapViaFunCacheTest extends SingleCacheManagerTest {
 
       @Override
       public boolean containsValue(Object value) {
+         // Finishes early, as soon as the value is found
          return await(cache.search(StreamMode.VALUES_ONLY,
             (p) -> p.value().get().equals(value) ? true : null)
          ).isPresent();
@@ -108,41 +185,96 @@ public class MapViaFunCacheTest extends SingleCacheManagerTest {
 
       @Override
       public V put(K key, V value) {
-         return await(cache.eval(toK(key), READ_WRITE, e -> {
-            V prev = e.get().orElse(null);
-            e.set(value);
+         return await(cache.eval(toK(key), READ_WRITE, v -> {
+            V prev = v.get().orElse(null);
+            v.set(value);
             return prev;
          }));
       }
 
       @Override
       public V remove(Object key) {
-         return null;  // TODO: Customise this generated block
+         return await(cache.eval(toK(key), READ_WRITE, v -> {
+            V prev = v.get().orElse(null);
+            v.remove();
+            return prev;
+         }));
       }
 
       @Override
       public void putAll(Map<? extends K, ? extends V> m) {
-         // TODO: Customise this generated block
+         Map<K, CompletableFuture<Object>> futures = cache.evalAll(m, WRITE_ONLY, (x, v) -> {
+            v.set(x);
+            return null;
+         });
+
+         // Wait for all futures to complete
+         await(CompletableFuture.allOf(
+            futures.values().toArray(new CompletableFuture[futures.size()])));
       }
 
       @Override
       public void clear() {
-         // TODO: Customise this generated block
+         await(cache.clearAll());
       }
 
       @Override
       public Set<K> keySet() {
-         return null;  // TODO: Customise this generated block
+         return await(cache.fold(StreamMode.KEYS_ONLY, new HashSet<>(), (p, set) -> {
+            set.add(p.key().get());
+            return set;
+         }));
       }
 
       @Override
       public Collection<V> values() {
-         return null;  // TODO: Customise this generated block
+         return await(cache.fold(StreamMode.VALUES_ONLY, new HashSet<>(), (p, set) -> {
+            set.add(p.value().get());
+            return set;
+         }));
       }
 
       @Override
       public Set<Entry<K, V>> entrySet() {
-         return null;  // TODO: Customise this generated block
+         return await(cache.fold(StreamMode.KEYS_AND_VALUES, new HashSet<>(), (p, set) -> {
+            set.add(new Entry<K, V>() {
+               @Override
+               public K getKey() {
+                  return p.key().get();
+               }
+
+               @Override
+               public V getValue() {
+                  return p.value().get();
+               }
+
+               @Override
+               public V setValue(V value) {
+                  V prev = p.value().get();
+                  cache.eval(p.key().get(), WRITE_ONLY, v -> v.set(value));
+                  return prev;
+               }
+
+               @Override
+               public boolean equals(Object o) {
+                  if (o == this)
+                     return true;
+                  if (o instanceof Map.Entry) {
+                     Map.Entry<?,?> e = (Map.Entry<?,?>)o;
+                     if (Objects.equals(p.key().get(), e.getKey()) &&
+                        Objects.equals(p.value().get(), e.getValue()))
+                        return true;
+                  }
+                  return false;
+               }
+
+               @Override
+               public int hashCode() {
+                  return p.hashCode();
+               }
+            });
+            return set;
+         }));
       }
    }
 

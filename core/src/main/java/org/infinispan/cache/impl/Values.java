@@ -1,13 +1,13 @@
 package org.infinispan.cache.impl;
 
-import org.infinispan.commons.api.functional.Value;
+import org.infinispan.commons.api.functional.MutableValue;
 import org.infinispan.container.entries.CacheEntry;
 
 import java.util.Optional;
 
 public class Values {
 
-   private static final Value<?> EMPTY = new Value() {
+   private static final MutableValue<?> EMPTY = new MutableValue() {
       @Override
       public Optional get() {
          return Optional.empty();
@@ -24,21 +24,21 @@ public class Values {
       }
    };
 
-   public static <V> Value<V> empty() {
+   public static <V> MutableValue<V> empty() {
       @SuppressWarnings("unchecked")
-      Value<V> v = (Value<V>) EMPTY;
+      MutableValue<V> v = (MutableValue<V>) EMPTY;
       return v;
    }
 
-   public static <K, V> Value<V> of(CacheEntry<K, V> entry) {
-      return new ValueImpl<>(entry);
+   public static <K, V> MutableValue<V> of(CacheEntry<K, V> entry) {
+      return new MutableValueImpl<>(entry);
    }
 
-   private static class ValueImpl<K, V> implements Value<V> {
+   private static class MutableValueImpl<K, V> implements MutableValue<V> {
 
       private final CacheEntry<K, V> entry;
 
-      public ValueImpl(CacheEntry<K, V> entry) {
+      public MutableValueImpl(CacheEntry<K, V> entry) {
          this.entry = entry;
       }
 
@@ -57,6 +57,8 @@ public class Values {
       @Override
       public Void remove() {
          entry.setRemoved(true);
+         // entry.setValid(false); <- FIXME: Is it needed?
+         entry.setChanged(true);
          return null;
       }
 

@@ -1,6 +1,7 @@
 package org.infinispan.commands;
 
 import org.infinispan.commands.control.LockControlCommand;
+import org.infinispan.commands.functional.EvalAllWriteCommand;
 import org.infinispan.commands.functional.EvalKeyReadOnlyCommand;
 import org.infinispan.commands.functional.EvalKeyWriteCommand;
 import org.infinispan.commands.read.DistributedExecuteCommand;
@@ -178,12 +179,17 @@ public abstract class AbstractVisitor implements Visitor {
    }
 
    @Override
-   public Object visitEvalReadOnlyCommand(InvocationContext ctx, EvalKeyReadOnlyCommand command) throws Throwable {
+   public Object visitEvalKeyReadOnlyCommand(InvocationContext ctx, EvalKeyReadOnlyCommand command) throws Throwable {
       return handleDefault(ctx, command);
    }
 
    @Override
-   public Object visitEvalWriteCommand(InvocationContext ctx, EvalKeyWriteCommand command) throws Throwable {
+   public Object visitEvalKeyWriteCommand(InvocationContext ctx, EvalKeyWriteCommand command) throws Throwable {
+      return handleDefault(ctx, command);
+   }
+
+   @Override
+   public Object visitEvalAllWriteCommand(InvocationContext ctx, EvalAllWriteCommand command) throws Throwable {
       return handleDefault(ctx, command);
    }
 }

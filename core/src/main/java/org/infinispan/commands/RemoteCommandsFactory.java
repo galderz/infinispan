@@ -1,6 +1,7 @@
 package org.infinispan.commands;
 
 import org.infinispan.commands.control.LockControlCommand;
+import org.infinispan.commands.functional.EvalAllWriteCommand;
 import org.infinispan.commands.functional.EvalKeyWriteCommand;
 import org.infinispan.commands.module.ExtendedModuleCommandFactory;
 import org.infinispan.commands.module.ModuleCommandFactory;
@@ -134,6 +135,9 @@ public class RemoteCommandsFactory {
                break;
             case EvalKeyWriteCommand.COMMAND_ID:
                command = new EvalKeyWriteCommand<>();
+               break;
+            case EvalAllWriteCommand.COMMAND_ID:
+               command = new EvalAllWriteCommand<>();
                break;
             default:
                throw new CacheException("Unknown command id " + id + "!");

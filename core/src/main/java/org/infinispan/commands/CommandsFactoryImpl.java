@@ -1,10 +1,13 @@
 package org.infinispan.commands;
 
 import org.infinispan.Cache;
+import org.infinispan.commands.functional.EvalAllWriteCommand;
 import org.infinispan.commands.functional.EvalKeyReadOnlyCommand;
 import org.infinispan.commands.functional.EvalKeyWriteCommand;
 import org.infinispan.commands.read.EntryRetrievalCommand;
-import org.infinispan.commons.api.functional.CacheFunction;
+import org.infinispan.commons.api.functional.Functions;
+import org.infinispan.commons.api.functional.Functions.MutableBiFunction;
+import org.infinispan.commons.api.functional.Functions.MutableFunction;
 import org.infinispan.commons.api.functional.Mode.AccessMode;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.commands.remote.GetKeysInGroupCommand;
@@ -640,13 +643,18 @@ public class CommandsFactoryImpl implements CommandsFactory {
    }
 
    @Override
-   public <V, T> EvalKeyReadOnlyCommand buildEvalKeyReadOnlyCommand(Object key, CacheFunction<V, T> f) {
+   public <V, T> EvalKeyReadOnlyCommand buildEvalKeyReadOnlyCommand(Object key, MutableFunction<V, T> f) {
       return new EvalKeyReadOnlyCommand(key, f);
    }
 
    @Override
-   public <V, T> EvalKeyWriteCommand buildEvalKeyWriteCommand(Object key, CacheFunction<V, T> f, AccessMode accessMode) {
-      return new EvalKeyWriteCommand(key, f, accessMode);
+   public <V, T> EvalKeyWriteCommand buildEvalKeyWriteCommand(Object key, AccessMode accessMode, MutableFunction<V, T> f) {
+      return new EvalKeyWriteCommand(key, accessMode, f);
+   }
+
+   @Override
+   public <V, T> EvalAllWriteCommand buildEvalAllWriteCommand(Object key, Object value, AccessMode accessMode, MutableBiFunction<V, T> f) {
+      return new EvalAllWriteCommand(key, value, accessMode, f);
    }
 
 }

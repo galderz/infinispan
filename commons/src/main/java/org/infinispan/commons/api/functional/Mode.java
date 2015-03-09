@@ -11,6 +11,7 @@ public interface Mode {
    }
 
    public static enum StreamMode implements Mode {
+      // FIXME: Add a NONE stream mode for when no keys nor values are needed? e.g. size counting
       KEYS_ONLY, VALUES_ONLY, KEYS_AND_VALUES
    }
 

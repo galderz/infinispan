@@ -4,6 +4,7 @@ import org.infinispan.commands.AbstractVisitor;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.DataCommand;
 import org.infinispan.commands.FlagAffectedCommand;
+import org.infinispan.commands.functional.EvalAllWriteCommand;
 import org.infinispan.commands.functional.EvalKeyReadOnlyCommand;
 import org.infinispan.commands.functional.EvalKeyWriteCommand;
 import org.infinispan.commands.read.AbstractDataCommand;
@@ -127,7 +128,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
    }
 
    @Override
-   public Object visitEvalReadOnlyCommand(InvocationContext ctx, EvalKeyReadOnlyCommand command) throws Throwable {
+   public Object visitEvalKeyReadOnlyCommand(InvocationContext ctx, EvalKeyReadOnlyCommand command) throws Throwable {
       return visitDataReadCommand(ctx, command);
    }
 
@@ -186,7 +187,13 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
    }
 
    @Override
-   public Object visitEvalWriteCommand(InvocationContext ctx, EvalKeyWriteCommand command) throws Throwable {
+   public Object visitEvalKeyWriteCommand(InvocationContext ctx, EvalKeyWriteCommand command) throws Throwable {
+      wrapEntryForPutIfNeeded(ctx, command);
+      return setSkipRemoteGetsAndInvokeNextForDataCommand(ctx, command, command.getMetadata());
+   }
+
+   @Override
+   public Object visitEvalAllWriteCommand(InvocationContext ctx, EvalAllWriteCommand command) throws Throwable {
       wrapEntryForPutIfNeeded(ctx, command);
       return setSkipRemoteGetsAndInvokeNextForDataCommand(ctx, command, command.getMetadata());
    }

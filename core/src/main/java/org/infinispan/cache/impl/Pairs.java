@@ -6,6 +6,10 @@ import java.util.Optional;
 
 public class Pairs {
 
+   // FIXME: Add a pair of both key and a value
+
+   // FIXME: Provide good hash code for pairs
+
    public static <K, V> Pair<K, V> ofKey(K key) {
       return new KeyOnlyPair<>(key);
    }

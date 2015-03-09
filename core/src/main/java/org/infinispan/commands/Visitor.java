@@ -1,6 +1,7 @@
 package org.infinispan.commands;
 
 import org.infinispan.commands.control.LockControlCommand;
+import org.infinispan.commands.functional.EvalAllWriteCommand;
 import org.infinispan.commands.functional.EvalKeyReadOnlyCommand;
 import org.infinispan.commands.functional.EvalKeyWriteCommand;
 import org.infinispan.commands.read.DistributedExecuteCommand;
@@ -81,7 +82,9 @@ public interface Visitor {
 
    // eval commands
 
-   Object visitEvalReadOnlyCommand(InvocationContext ctx, EvalKeyReadOnlyCommand command) throws Throwable;
+   Object visitEvalKeyReadOnlyCommand(InvocationContext ctx, EvalKeyReadOnlyCommand command) throws Throwable;
 
-   Object visitEvalWriteCommand(InvocationContext ctx, EvalKeyWriteCommand command) throws Throwable;
+   Object visitEvalKeyWriteCommand(InvocationContext ctx, EvalKeyWriteCommand command) throws Throwable;
+
+   Object visitEvalAllWriteCommand(InvocationContext ctx, EvalAllWriteCommand command) throws Throwable;
 }
