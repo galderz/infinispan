@@ -11,15 +11,15 @@ public class Functions {
    }
 
    @FunctionalInterface
-   public interface MutableFunction<V, T> extends Function<MutableValue<V>, T>, Serializable {}
+   public interface ValueFunction<V, T> extends Function<Value<V>, T>, Serializable {}
 
    @FunctionalInterface
-   public interface MutableBiFunction<V, T> extends BiFunction<V, MutableValue<V>, T>, Serializable {}
+   public interface ValueBiFunction<V, T> extends BiFunction<V, Value<V>, T>, Serializable {}
 
    @FunctionalInterface
-   public interface ImmutableFunction<K, V, T> extends Function<Pair<K, V>, T>, Serializable  {}
+   public interface PairFunction<K, V, T> extends Function<Pair<K, V>, T>, Serializable  {}
 
    @FunctionalInterface
-   public interface ImmutableBiFunction<K, V, T1, T2> extends BiFunction<Pair<K, V>, T1, T2>, Serializable  {}
+   public interface PairBiFunction<K, V, T1, T2> extends BiFunction<Pair<K, V>, T1, T2>, Serializable  {}
 
 }

@@ -1,7 +1,7 @@
 package org.infinispan.api.functional;
 
 import org.infinispan.commons.api.functional.FunCache;
-import org.infinispan.commons.api.functional.MutableValue;
+import org.infinispan.commons.api.functional.Value;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.SingleCacheManagerTest;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
@@ -29,9 +29,9 @@ public class FunCacheTest extends SingleCacheManagerTest {
 
    public void testEmptyGetThenPutViaEval() {
       await(
-         funCache.eval(1, READ_ONLY, MutableValue::get).thenCompose(v ->
+         funCache.eval(1, READ_ONLY, Value::get).thenCompose(v ->
          funCache.eval(1, WRITE_ONLY, e -> e.set("one")).thenCompose(x ->
-         funCache.eval(1, READ_ONLY, MutableValue::get).thenAccept(v2 -> {
+         funCache.eval(1, READ_ONLY, Value::get).thenAccept(v2 -> {
             assertEquals(Optional.empty(), v);
             assertEquals(Optional.of("one"), v2);
          })
@@ -41,7 +41,7 @@ public class FunCacheTest extends SingleCacheManagerTest {
    public void testPutGetViaEval() {
       await(
          funCache.eval(1, WRITE_ONLY, e -> e.set("one")).thenCompose(x ->
-         funCache.eval(1, READ_ONLY, MutableValue::get).thenAccept(v ->
+         funCache.eval(1, READ_ONLY, Value::get).thenAccept(v ->
             assertEquals(Optional.of("one"), v)
          )
       ));

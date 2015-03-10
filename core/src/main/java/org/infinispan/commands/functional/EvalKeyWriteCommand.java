@@ -4,9 +4,9 @@ import org.infinispan.cache.impl.Values;
 import org.infinispan.commands.Visitor;
 import org.infinispan.commands.write.AbstractDataWriteCommand;
 import org.infinispan.commands.write.ValueMatcher;
-import org.infinispan.commons.api.functional.Functions.MutableFunction;
+import org.infinispan.commons.api.functional.Functions.ValueFunction;
 import org.infinispan.commons.api.functional.Mode.AccessMode;
-import org.infinispan.commons.api.functional.MutableValue;
+import org.infinispan.commons.api.functional.Value;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.context.InvocationContext;
 
@@ -15,7 +15,7 @@ public class EvalKeyWriteCommand<V, T> extends AbstractDataWriteCommand {
 
    public static final byte COMMAND_ID = 47;
 
-   private MutableFunction<V, T> f;
+   private ValueFunction<V, T> f;
    private AccessMode accessMode;
    private ValueMatcher valueMatcher;
    boolean successful = true;
@@ -23,7 +23,7 @@ public class EvalKeyWriteCommand<V, T> extends AbstractDataWriteCommand {
    public EvalKeyWriteCommand() {
    }
 
-   public EvalKeyWriteCommand(Object key, AccessMode accessMode, MutableFunction<V, T> f) {
+   public EvalKeyWriteCommand(Object key, AccessMode accessMode, ValueFunction<V, T> f) {
       super(key, null);
       this.f = f;
       this.accessMode = accessMode;
@@ -42,7 +42,7 @@ public class EvalKeyWriteCommand<V, T> extends AbstractDataWriteCommand {
       CacheEntry<Object, V> entry = ctx.lookupEntry(key);
       if (entry == null) return null;
 
-      MutableValue<V> funEntry = Values.of(entry);
+      Value<V> funEntry = Values.of(entry);
       Object ret = f.apply(funEntry);
       return valueMatcher != ValueMatcher.MATCH_EXPECTED_OR_NEW ? ret : null;
    }
@@ -59,7 +59,7 @@ public class EvalKeyWriteCommand<V, T> extends AbstractDataWriteCommand {
 
    public void setParameters(int commandId, Object[] parameters) {
       key = parameters[0];
-      f = (MutableFunction<V, T>) parameters[1];
+      f = (ValueFunction<V, T>) parameters[1];
       valueMatcher = (ValueMatcher) parameters[2];
    }
 

@@ -1,7 +1,7 @@
 package org.infinispan.api.functional;
 
 import org.infinispan.commons.api.functional.FunCache;
-import org.infinispan.commons.api.functional.MutableValue;
+import org.infinispan.commons.api.functional.Value;
 import org.infinispan.distribution.BaseDistFunctionalTest;
 import org.testng.annotations.Test;
 
@@ -25,7 +25,7 @@ public class DistFunCacheTest extends BaseDistFunctionalTest<Integer, String> {
       FunCache<Integer, String> nonOwner = (FunCache<Integer, String>) getNonOwners(1)[0];
       await(
          nonOwner.eval(1, WRITE_ONLY, e -> e.set("one")).thenCompose(x ->
-         nonOwner.eval(1, READ_ONLY, MutableValue::get).thenAccept(v ->
+         nonOwner.eval(1, READ_ONLY, Value::get).thenAccept(v ->
             assertEquals(Optional.of("one"), v)
          )
       ));

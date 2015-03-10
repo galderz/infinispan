@@ -6,9 +6,11 @@ import java.util.Optional;
 
 public class Pairs {
 
-   // FIXME: Add a pair of both key and a value
-
    // FIXME: Provide good hash code for pairs
+
+   public static <K, V> Pair<K, V> of(K key, V value) {
+      return new PairImpl<>(key, value);
+   }
 
    public static <K, V> Pair<K, V> ofKey(K key) {
       return new KeyOnlyPair<>(key);
@@ -58,4 +60,23 @@ public class Pairs {
       }
    }
 
+   private static final class PairImpl<K, V> implements Pair<K, V> {
+      private final Optional<K> key;
+      private final Optional<V> value;
+
+      public PairImpl(K k, V v) {
+         this.key = Optional.of(k);
+         this.value = Optional.of(v);
+      }
+
+      @Override
+      public Optional<K> key() {
+         return key;
+      }
+
+      @Override
+      public Optional<V> value() {
+         return value;
+      }
+   }
 }

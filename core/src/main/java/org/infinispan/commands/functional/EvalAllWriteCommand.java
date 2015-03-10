@@ -4,9 +4,9 @@ import org.infinispan.cache.impl.Values;
 import org.infinispan.commands.Visitor;
 import org.infinispan.commands.write.AbstractDataWriteCommand;
 import org.infinispan.commands.write.ValueMatcher;
-import org.infinispan.commons.api.functional.Functions.MutableBiFunction;
+import org.infinispan.commons.api.functional.Functions.ValueBiFunction;
 import org.infinispan.commons.api.functional.Mode.AccessMode;
-import org.infinispan.commons.api.functional.MutableValue;
+import org.infinispan.commons.api.functional.Value;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.context.InvocationContext;
 
@@ -15,7 +15,7 @@ public class EvalAllWriteCommand<V, T> extends AbstractDataWriteCommand {
 
    public static final byte COMMAND_ID = 48;
 
-   private MutableBiFunction<V, T> f;
+   private ValueBiFunction<V, T> f;
    private AccessMode accessMode;
    private ValueMatcher valueMatcher;
    boolean successful = true;
@@ -24,7 +24,7 @@ public class EvalAllWriteCommand<V, T> extends AbstractDataWriteCommand {
    public EvalAllWriteCommand() {
    }
 
-   public EvalAllWriteCommand(Object key, V value, AccessMode accessMode, MutableBiFunction<V, T> f) {
+   public EvalAllWriteCommand(Object key, V value, AccessMode accessMode, ValueBiFunction<V, T> f) {
       super(key, null);
       this.f = f;
       this.accessMode = accessMode;
@@ -44,7 +44,7 @@ public class EvalAllWriteCommand<V, T> extends AbstractDataWriteCommand {
       CacheEntry<Object, V> entry = ctx.lookupEntry(key);
       if (entry == null) return null;
 
-      MutableValue<V> funEntry = Values.of(entry);
+      Value<V> funEntry = Values.of(entry);
       Object ret = f.apply(value, funEntry);
       return valueMatcher != ValueMatcher.MATCH_EXPECTED_OR_NEW ? ret : null;
    }
@@ -61,7 +61,7 @@ public class EvalAllWriteCommand<V, T> extends AbstractDataWriteCommand {
 
    public void setParameters(int commandId, Object[] parameters) {
       key = parameters[0];
-      f = (MutableBiFunction<V, T>) parameters[1];
+      f = (ValueBiFunction<V, T>) parameters[1];
       valueMatcher = (ValueMatcher) parameters[2];
       value = (V) parameters[3];
    }

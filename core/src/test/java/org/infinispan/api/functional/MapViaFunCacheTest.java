@@ -127,6 +127,7 @@ public class MapViaFunCacheTest extends SingleCacheManagerTest {
       keys.forEach(expectedKeys::remove);
       assertEquals(true, expectedKeys.isEmpty());
 
+      assertEquals(false, map.isEmpty());
       Collection<String> values = map.values();
       assertEquals(3, values.size());
       Set<String> expectedValues = new HashSet<>(Arrays.asList("one", "two", "three"));

@@ -4,8 +4,8 @@ import org.infinispan.cache.impl.Values;
 import org.infinispan.commands.Visitor;
 import org.infinispan.commands.read.AbstractDataCommand;
 import org.infinispan.commands.read.RemoteFetchingCommand;
-import org.infinispan.commons.api.functional.Functions.MutableFunction;
-import org.infinispan.commons.api.functional.MutableValue;
+import org.infinispan.commons.api.functional.Functions.ValueFunction;
+import org.infinispan.commons.api.functional.Value;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.context.InvocationContext;
@@ -15,10 +15,10 @@ public class EvalKeyReadOnlyCommand<V, T> extends AbstractDataCommand implements
 
    public static final byte COMMAND_ID = 46;
 
-   private MutableFunction<V, T> f;
+   private ValueFunction<V, T> f;
    private InternalCacheEntry remotelyFetchedValue;
 
-   public EvalKeyReadOnlyCommand(Object key, MutableFunction<V, T> f) {
+   public EvalKeyReadOnlyCommand(Object key, ValueFunction<V, T> f) {
       super(key, null);
       this.f = f;
    }
@@ -38,7 +38,7 @@ public class EvalKeyReadOnlyCommand<V, T> extends AbstractDataCommand implements
    }
 
    public Object perform(CacheEntry<Object, V> entry) {
-      MutableValue<V> funEntry = Values.of(entry);
+      Value<V> funEntry = Values.of(entry);
       return f.apply(funEntry);
    }
 

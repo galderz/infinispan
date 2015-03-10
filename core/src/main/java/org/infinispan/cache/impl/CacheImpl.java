@@ -26,10 +26,10 @@ import org.infinispan.commands.write.ValueMatcher;
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.api.BasicCacheContainer;
-import org.infinispan.commons.api.functional.Functions.MutableFunction;
-import org.infinispan.commons.api.functional.Functions.MutableBiFunction;
-import org.infinispan.commons.api.functional.Functions.ImmutableFunction;
-import org.infinispan.commons.api.functional.Functions.ImmutableBiFunction;
+import org.infinispan.commons.api.functional.Functions.ValueFunction;
+import org.infinispan.commons.api.functional.Functions.ValueBiFunction;
+import org.infinispan.commons.api.functional.Functions.PairFunction;
+import org.infinispan.commons.api.functional.Functions.PairBiFunction;
 import org.infinispan.commons.api.functional.FunCache;
 import org.infinispan.commons.api.functional.Mode;
 import org.infinispan.commons.api.functional.Mode.AccessMode;
@@ -1728,7 +1728,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V>, FunCache<K,V> {
    }
 
    @Override
-   public <T> CompletableFuture<T> eval(K key, AccessMode mode, MutableFunction<? super V, ? extends T> f) {
+   public <T> CompletableFuture<T> eval(K key, AccessMode mode, ValueFunction<? super V, ? extends T> f) {
       VisitableCommand cmd = mode == AccessMode.READ_ONLY
          ? commandsFactory.buildEvalKeyReadOnlyCommand(key, f)
          : commandsFactory.buildEvalKeyWriteCommand(key, mode, f);
@@ -1740,7 +1740,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V>, FunCache<K,V> {
 
    @Override
    public <T> Map<K, CompletableFuture<T>> evalAll(Map<? extends K, ? extends V> iter,
-            AccessMode mode, MutableBiFunction<? super V, ? extends T> f) {
+            AccessMode mode, ValueBiFunction<? super V, ? extends T> f) {
       // FIXME: This is a rudimentary implementation, could perform better using its spliterator...
       // FIXME: Instead of command per key, it could be implemented with a command per subset of keys (e.g. per owner)
       Map<K, CompletableFuture<T>> results = new HashMap<>();
@@ -1765,7 +1765,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V>, FunCache<K,V> {
    }
 
    @Override
-   public <T> CompletableFuture<Optional<T>> search(Mode.StreamMode mode, ImmutableFunction<? super K, ? super V, ? extends T> f) {
+   public <T> CompletableFuture<Optional<T>> search(Mode.StreamMode mode, PairFunction<? super K, ? super V, ? extends T> f) {
       // FIXME: Add support for KEYS_ONLY and KEYS_AND_VALUES
       switch (mode) {
          case VALUES_ONLY:
@@ -1775,7 +1775,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V>, FunCache<K,V> {
       }
    }
 
-   private <T> Optional<T> valuesOnlySearch(ImmutableFunction<? super K, ? super V, ? extends T> f) {
+   private <T> Optional<T> valuesOnlySearch(PairFunction<? super K, ? super V, ? extends T> f) {
       try (CloseableIterator<V> it = values().iterator()) {
          while (it.hasNext()) {
             V next = it.next();
@@ -1788,17 +1788,20 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V>, FunCache<K,V> {
    }
 
    @Override
-   public <T> CompletableFuture<T> fold(Mode.StreamMode mode, T z, ImmutableBiFunction<? super K, ? super V, ? super T, ? extends T> f) {
-      // FIXME: Add support for KEYS_ONLY and KEYS_AND_VALUES
+   public <T> CompletableFuture<T> fold(Mode.StreamMode mode, T z, PairBiFunction<? super K, ? super V, ? super T, ? extends T> f) {
       switch (mode) {
          case KEYS_ONLY:
             return CompletableFuture.supplyAsync(() -> keysOnlyFold(z, f));
+         case VALUES_ONLY:
+            return CompletableFuture.supplyAsync(() -> valuesOnlyFold(z, f));
+         case KEYS_AND_VALUES:
+            return CompletableFuture.supplyAsync(() -> entriesFold(z, f));
          default:
             return null;
       }
    }
 
-   public <T> T keysOnlyFold(T z, ImmutableBiFunction<? super K, ? super V, ? super T, ? extends T> f) {
+   public <T> T keysOnlyFold(T z, PairBiFunction<? super K, ? super V, ? super T, ? extends T> f) {
       T acc = z;
       try (CloseableIterator<K> it = keySet().iterator()) {
          while (it.hasNext()) {
@@ -1809,4 +1812,25 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V>, FunCache<K,V> {
       return acc;
    }
 
+   public <T> T valuesOnlyFold(T z, PairBiFunction<? super K, ? super V, ? super T, ? extends T> f) {
+      T acc = z;
+      try (CloseableIterator<V> it = values().iterator()) {
+         while (it.hasNext()) {
+            V next = it.next();
+            acc = f.apply(Pairs.ofValue(next), acc);
+         }
+      }
+      return acc;
+   }
+
+   public <T> T entriesFold(T z, PairBiFunction<? super K, ? super V, ? super T, ? extends T> f) {
+      T acc = z;
+      try (CloseableIterator<Entry<K, V>> it = entrySet().iterator()) {
+         while (it.hasNext()) {
+            Entry<K, V> next = it.next();
+            acc = f.apply(Pairs.of(next.getKey(), next.getValue()), acc);
+         }
+      }
+      return acc;
+   }
 }
