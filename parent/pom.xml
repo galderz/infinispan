@@ -156,6 +156,7 @@
       <version.mysql.driver>5.1.19</version.mysql.driver>
       <version.org.jboss.naming>5.0.6.CR1</version.org.jboss.naming>
       <version.org.picketbox>4.0.20.Final</version.org.picketbox>
+      <version.org.hdrhistogram.HdrHistogram>2.1.4</version.org.hdrhistogram.HdrHistogram>
       <version.postgresql.driver>9.3-1101-jdbc41</version.postgresql.driver>
       <version.resteasy>3.0.11.Final</version.resteasy>
       <version.shrinkwrapResolver>2.1.0</version.shrinkwrapResolver>
@@ -1129,6 +1130,11 @@
              <version>${version.org.wildfly.core}</version>
              <scope>import</scope>
              <type>pom</type>
+          </dependency>
+          <dependency>
+             <groupId>org.hdrhistogram</groupId>
+             <artifactId>HdrHistogram</artifactId>
+             <version>${version.org.hdrhistogram.HdrHistogram}</version>
           </dependency>
       </dependencies>
    </dependencyManagement>
