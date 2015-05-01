@@ -49,4 +49,9 @@ public class NearRemoteCache<K, V> extends RemoteCacheImpl<K, V> {
    public void stop() {
       nearcache.stop(this);
    }
+
+   public void clearLocalCache() {
+      nearcache.clear();
+   }
+
 }
