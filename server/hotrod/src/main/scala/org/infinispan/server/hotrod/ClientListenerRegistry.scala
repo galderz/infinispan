@@ -363,22 +363,6 @@ object ClientListenerRegistry extends Constants {
       }
    }
 
-   private class UnmarshallFilterFactory(filterFactory: CacheEventFilterFactory, marshaller: Marshaller)
-         extends CacheEventFilterFactory {
-      override def getFilter[K, V](params: Array[AnyRef]): CacheEventFilter[K, V] = {
-         new UnmarshallFilter(filterFactory.getFilter(params), marshaller)
-               .asInstanceOf[CacheEventFilter[K, V]]
-      }
-   }
-
-   private class UnmarshallConverterFactory(converterFactory: CacheEventConverterFactory, marshaller: Marshaller)
-         extends CacheEventConverterFactory {
-      override def getConverter[K, V, C](params: Array[AnyRef]): CacheEventConverter[K, V, C] = {
-         new UnmarshallConverter(converterFactory.getConverter(params), marshaller)
-               .asInstanceOf[CacheEventConverter[K, V, C]] // ugly but it works :|
-      }
-   }
-
    class UnmarshallFilter(val filter: CacheEventFilter[AnyRef, AnyRef], val marshaller: Marshaller)
            extends CacheEventFilter[Bytes, Bytes] {
       override def accept(key: Bytes, prevValue: Bytes, prevMetadata: Metadata, value: Bytes, metadata: Metadata, eventType: EventType): Boolean = {
