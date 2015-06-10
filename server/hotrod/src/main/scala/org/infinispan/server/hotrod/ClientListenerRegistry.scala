@@ -493,12 +493,15 @@ object ClientListenerRegistry extends Constants {
       def isOpen: Boolean = ch.isOpen
 
       private def flush(): Unit = {
-         this.synchronized {
-            val eventsToFlush = new java.util.LinkedList[Events.Event]
-            events.drainTo(eventsToFlush)
-            if (eventsToFlush.size() > 0) {
-               eventsToFlush.foreach(ch.write(_))
-               ch.flush()
+         // Try flushing only if it's writable, to avoid piling up Netty's queues
+         if (ch.isWritable) {
+            this.synchronized {
+               val eventsToFlush = new java.util.LinkedList[Events.Event]
+               events.drainTo(eventsToFlush)
+               if (eventsToFlush.size() > 0) {
+                  eventsToFlush.foreach(ch.write(_))
+                  ch.flush()
+               }
             }
          }
       }
