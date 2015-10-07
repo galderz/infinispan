@@ -46,6 +46,8 @@ import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.DeltaAwareCacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.InternalCacheValue;
+import org.infinispan.container.versioning.EntryVersion;
+import org.infinispan.container.versioning.EntryVersionsMap;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
@@ -56,6 +58,8 @@ import org.infinispan.jmx.annotations.ManagedAttribute;
 import org.infinispan.jmx.annotations.ManagedOperation;
 import org.infinispan.jmx.annotations.MeasurementType;
 import org.infinispan.marshall.core.MarshalledEntryImpl;
+import org.infinispan.metadata.EmbeddedMetadata;
+import org.infinispan.metadata.Metadata;
 import org.infinispan.persistence.manager.PersistenceManager;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
@@ -461,6 +465,41 @@ public class CacheWriterInterceptor extends JmxStatsCommandInterceptor {
          }
          return null;
       }
+
+      @Override
+      public Object visitReadWriteKeyValueCommand(InvocationContext ctx, ReadWriteKeyValueCommand command) throws Throwable {
+         return visitFunctionalWrite(ctx, command, command.getKey());
+      }
+
+      @Override
+      public Object visitReadWriteKeyCommand(InvocationContext ctx, ReadWriteKeyCommand command) throws Throwable {
+         return visitFunctionalWrite(ctx, command, command.getKey());
+      }
+
+      @Override
+      public Object visitWriteOnlyManyEntriesCommand(InvocationContext ctx, WriteOnlyManyEntriesCommand command) throws Throwable {
+         Map<Object, Object> map = command.getEntries();
+         for (Object key : map.keySet())
+            visitFunctionalWrite(ctx, command, key);
+         return null;
+      }
+
+      private Object visitFunctionalWrite(InvocationContext ctx, FlagAffectedCommand command, Object key) throws Throwable {
+         if (isProperWriter(ctx, command, key)) {
+            CacheEntry entry = ctx.lookupEntry(key);
+            boolean changed = entry.isChanged();
+            boolean removed = entry.isRemoved();
+            if (removed) {
+               persistenceManager.deleteFromAllStores(key, BOTH);
+            } else if (changed) {
+               InternalCacheEntry e = getStoredEntry(key, ctx);
+               if (generateStatistics) putCount++;
+               MarshalledEntryImpl me = new MarshalledEntryImpl<>(key, e.getValue(), internalMetadata(e), marshaller);
+               persistenceManager.writeToAllNonTxStores(me, command.hasFlag(Flag.SKIP_SHARED_CACHE_STORE) ? PRIVATE : BOTH);
+            }
+         }
+         return null;
+      }
    }
 
    @Override
@@ -491,4 +530,35 @@ public class CacheWriterInterceptor extends JmxStatsCommandInterceptor {
    protected boolean skipSharedStores(InvocationContext ctx, Object key, FlagAffectedCommand command) {
       return !ctx.isOriginLocal() || command.hasFlag(Flag.SKIP_SHARED_CACHE_STORE);
    }
+
+   InternalCacheEntry getStoredEntry(Object key, InvocationContext ctx) {
+      CacheEntry entry = ctx.lookupEntry(key);
+      if (entry instanceof InternalCacheEntry) {
+         return (InternalCacheEntry) entry;
+      } else {
+         if (ctx.isInTxScope()) {
+            EntryVersionsMap updatedVersions =
+               ((TxInvocationContext) ctx).getCacheTransaction().getUpdatedEntryVersions();
+            if (updatedVersions != null) {
+               EntryVersion version = updatedVersions.get(entry.getKey());
+               if (version != null) {
+                  Metadata metadata = entry.getMetadata();
+                  if (metadata == null) {
+                     // If no metadata passed, assumed embedded metadata
+                     metadata = new EmbeddedMetadata.Builder()
+                        .lifespan(entry.getLifespan()).maxIdle(entry.getMaxIdle())
+                        .version(version).build();
+                     return entryFactory.create(entry.getKey(), entry.getValue(), metadata);
+                  } else {
+                     metadata = metadata.builder().version(version).build();
+                     return entryFactory.create(entry.getKey(), entry.getValue(), metadata);
+                  }
+               }
+            }
+         }
+
+         return entryFactory.create(entry);
+      }
+   }
+
 }

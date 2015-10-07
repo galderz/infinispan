@@ -78,7 +78,7 @@ public class CacheLoaderFunctionalTest extends AbstractInfinispanTest {
       cache = getCache(cm);
       store = (AdvancedLoadWriteStore<String, String>) TestingUtil.getFirstLoader(cache);
       writer = (AdvancedCacheWriter<String, String>) TestingUtil.getFirstLoader(cache);
-      tm = TestingUtil.getTransactionManager(cache);
+      tm = cache.getAdvancedCache().getTransactionManager();
       sm = cache.getAdvancedCache().getComponentRegistry().getCacheMarshaller();
    }
 
@@ -464,6 +464,9 @@ public class CacheLoaderFunctionalTest extends AbstractInfinispanTest {
 
       assert "v1".equals(cache.remove("k1"));
       assert "v2".equals(cache.remove("k2"));
+
+      assertNull(cache.get("k1"));
+      assertNull(cache.get("k2"));
    }
 
    public void testLoadingToMemory() throws PersistenceException {

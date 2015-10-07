@@ -4,6 +4,7 @@ import static org.infinispan.functional.impl.Params.withFuture;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
@@ -24,6 +25,8 @@ import org.infinispan.commons.util.Experimental;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+
+import static org.infinispan.functional.impl.FunctionalInvocations.invoke;
 
 /**
  * Read-write map implementation.
@@ -53,9 +56,9 @@ public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
       log.tracef("Invoked eval(k=%s, %s)", key, params);
       Param<FutureMode> futureMode = params.get(FutureMode.ID);
       ReadWriteKeyCommand cmd = fmap.cmdFactory().buildReadWriteKeyCommand(key, f, params);
-      InvocationContext ctx = fmap.invCtxFactory().createInvocationContext(true, 1);
-      ctx.setLockOwner(cmd.getKeyLockOwner());
-      return withFuture(futureMode, fmap.asyncExec(), () -> (R) fmap.chain().invoke(ctx, cmd));
+      return withFuture(futureMode, fmap.asyncExec(), () ->
+         invoke(fmap.cache, 1, Optional.of(cmd.getKeyLockOwner()), (ctx) -> (R) fmap.chain().invoke(ctx, cmd))
+      );
    }
 
    @Override
@@ -63,9 +66,9 @@ public final class ReadWriteMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
       log.tracef("Invoked eval(k=%s, v=%s, %s)", key, value, params);
       Param<FutureMode> futureMode = params.get(FutureMode.ID);
       ReadWriteKeyValueCommand cmd = fmap.cmdFactory().buildReadWriteKeyValueCommand(key, value, f, params);
-      InvocationContext ctx = fmap.invCtxFactory().createInvocationContext(true, 1);
-      ctx.setLockOwner(cmd.getKeyLockOwner());
-      return withFuture(futureMode, fmap.asyncExec(), () -> (R) fmap.chain().invoke(ctx, cmd));
+      return withFuture(futureMode, fmap.asyncExec(), () ->
+         invoke(fmap.cache, 1, Optional.of(cmd.getKeyLockOwner()), (ctx) -> (R) fmap.chain().invoke(ctx, cmd))
+      );
    }
 
    @Override

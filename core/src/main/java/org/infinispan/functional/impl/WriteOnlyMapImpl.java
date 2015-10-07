@@ -3,6 +3,7 @@ package org.infinispan.functional.impl;
 import static org.infinispan.functional.impl.Params.withFuture;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
@@ -23,6 +24,8 @@ import org.infinispan.commons.util.Experimental;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+
+import static org.infinispan.functional.impl.FunctionalInvocations.invoke;
 
 /**
  * Write-only map implementation.
@@ -52,9 +55,10 @@ public final class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
       log.tracef("Invoked eval(k=%s, %s)", key, params);
       Param<FutureMode> futureMode = params.get(FutureMode.ID);
       WriteOnlyKeyCommand cmd = fmap.cmdFactory().buildWriteOnlyKeyCommand(key, f, params);
-      InvocationContext ctx = fmap.invCtxFactory().createInvocationContext(true, 1);
-      ctx.setLockOwner(cmd.getKeyLockOwner());
-      return futureVoid(futureMode, ctx, cmd);
+      return withFuture(futureMode, fmap.asyncExec(), () -> {
+         invoke(fmap.cache, 1, Optional.of(cmd.getKeyLockOwner()), (ctx) -> fmap.chain().invoke(ctx, cmd));
+         return null;
+      });
    }
 
    @Override
@@ -72,8 +76,10 @@ public final class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
       log.tracef("Invoked evalMany(entries=%s, %s)", entries, params);
       Param<FutureMode> futureMode = params.get(FutureMode.ID);
       WriteOnlyManyEntriesCommand cmd = fmap.cmdFactory().buildWriteOnlyManyEntriesCommand(entries, f, params);
-      InvocationContext ctx = fmap.invCtxFactory().createInvocationContext(true, entries.size());
-      return futureVoid(futureMode, ctx, cmd);
+      return withFuture(futureMode, fmap.asyncExec(), () -> {
+         invoke(fmap.cache, entries.size(), Optional.of(cmd.getKeyLockOwner()), (ctx) -> fmap.chain().invoke(ctx, cmd));
+         return null;
+      });
    }
 
    @Override

@@ -701,7 +701,7 @@ public class CommandsFactoryImpl implements CommandsFactory {
    @Override
    public <K, V> WriteOnlyManyEntriesCommand<K, V> buildWriteOnlyManyEntriesCommand(
          Map<? extends K, ? extends V> entries, BiConsumer<V, WriteEntryView<V>> f, Params params) {
-      return new WriteOnlyManyEntriesCommand<>(entries, f, params);
+      return new WriteOnlyManyEntriesCommand<>(entries, f, generateUUID(), params);
    }
 
    private ValueMatcher getValueMatcher(Object o) {

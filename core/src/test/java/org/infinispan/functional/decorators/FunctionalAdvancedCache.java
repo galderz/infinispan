@@ -278,6 +278,16 @@ public final class FunctionalAdvancedCache<K, V> implements AdvancedCache<K, V> 
       cache.start();
    }
 
+   @Override
+   public TransactionManager getTransactionManager() {
+      return cache.getTransactionManager();
+   }
+
+   @Override
+   public ComponentStatus getStatus() {
+      return cache.getStatus();
+   }
+
    ////////////////////////////////////////////////////////////////////////////
 
    @Override
@@ -357,11 +367,6 @@ public final class FunctionalAdvancedCache<K, V> implements AdvancedCache<K, V> 
 
    @Override
    public DataContainer<K, V> getDataContainer() {
-      return null;  // TODO: Customise this generated block
-   }
-
-   @Override
-   public TransactionManager getTransactionManager() {
       return null;  // TODO: Customise this generated block
    }
 
@@ -478,11 +483,6 @@ public final class FunctionalAdvancedCache<K, V> implements AdvancedCache<K, V> 
    @Override
    public void putForExternalRead(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
       // TODO: Customise this generated block
-   }
-
-   @Override
-   public ComponentStatus getStatus() {
-      return null;  // TODO: Customise this generated block
    }
 
    @Override
