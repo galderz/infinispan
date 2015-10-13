@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.transaction.TransactionManager;
 
+import org.infinispan.AdvancedCache;
 import org.infinispan.Cache;
 import org.infinispan.atomic.AtomicMap;
 import org.infinispan.atomic.AtomicMapLookup;
@@ -23,6 +24,7 @@ import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.cache.PersistenceConfigurationBuilder;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
+import org.infinispan.context.Flag;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.persistence.manager.PersistenceManager;
@@ -32,6 +34,7 @@ import org.infinispan.test.SingleCacheManagerTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.infinispan.transaction.TransactionMode;
+import org.infinispan.util.Int;
 import org.testng.annotations.Test;
 
 /**
@@ -119,19 +122,13 @@ public abstract class BaseStoreFunctionalTest extends SingleCacheManagerTest {
    }
 
    public void testPreloadStoredAsBinary() {
-      ConfigurationBuilder cb = TestCacheManagerFactory.getDefaultCacheConfiguration(false);
-      createCacheStoreConfig(cb.persistence(), true).storeAsBinary().enable();
-      cacheManager.defineConfiguration("testPreloadStoredAsBinary", cb.build());
-      Cache<String, Pojo> cache = cacheManager.getCache("testPreloadStoredAsBinary");
-      cache.start();
-
-      assert cache.getCacheConfiguration().persistence().preload();
-      assert cache.getCacheConfiguration().storeAsBinary().enabled();
+      AdvancedCache<String, Pojo> cache = createStoreAsBinaryCache("testPreloadStoredAsBinary");
 
       cache.put("k1", new Pojo(1));
       cache.put("k2", new Pojo(2), 111111, TimeUnit.MILLISECONDS);
       cache.put("k3", new Pojo(3), -1, TimeUnit.MILLISECONDS, 222222, TimeUnit.MILLISECONDS);
       cache.put("k4", new Pojo(4), 333333, TimeUnit.MILLISECONDS, 444444, TimeUnit.MILLISECONDS);
+      assertEquals(4, cache.entrySet().size());
 
       cache.stop();
 
@@ -142,6 +139,36 @@ public abstract class BaseStoreFunctionalTest extends SingleCacheManagerTest {
       assertEquals(new Pojo(2), cache.get("k2"));
       assertEquals(new Pojo(3), cache.get("k3"));
       assertEquals(new Pojo(4), cache.get("k4"));
+   }
+
+   <K, V> AdvancedCache<K, V> createStoreAsBinaryCache(String cacheName) {
+      ConfigurationBuilder cb = TestCacheManagerFactory.getDefaultCacheConfiguration(false);
+      createCacheStoreConfig(cb.persistence(), true).storeAsBinary().enable();
+      cacheManager.defineConfiguration(cacheName, cb.build());
+      Cache<K, V> cache = cacheManager.getCache(cacheName);
+      cache.start();
+
+      assertTrue(cache.getCacheConfiguration().persistence().preload());
+      assertTrue(cache.getCacheConfiguration().storeAsBinary().enabled());
+      return cache.getAdvancedCache();
+   }
+
+   public void testPreloadStoredKeysAsBinary() {
+      AdvancedCache<Int, String> cache = createStoreAsBinaryCache("testPreloadStoredKeysAsBinary");
+
+      assertEquals(0, cache.size());
+
+      cache.put(new Int(1), "v1");
+      cache.put(new Int(2), "v2", 111111, TimeUnit.MILLISECONDS);
+      cache.put(new Int(3), "v3", -1, TimeUnit.MILLISECONDS, 222222, TimeUnit.MILLISECONDS);
+      cache.put(new Int(4), "v4", 333333, TimeUnit.MILLISECONDS, 444444, TimeUnit.MILLISECONDS);
+      assertEquals(4, cache.size());
+
+      cache.stop();
+
+      cache.start();
+
+      assertEquals(4, cache.size());
    }
 
    public static class Pojo implements Serializable {

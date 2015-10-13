@@ -1,7 +1,10 @@
 package org.infinispan.jcache.util;
 
+import javax.cache.integration.CacheLoader;
+import javax.cache.integration.CacheLoaderException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -18,9 +21,21 @@ import org.infinispan.commons.util.CollectionFactory;
  */
 public class InMemoryJCacheLoader<K, V> implements CacheLoader<K, V> {
 
-   private final ConcurrentMap<K, V> store = CollectionFactory.makeConcurrentMap();
+   private final ConcurrentMap<K, V> store;
 
    private final LongAdder counter = new LongAdder();
+
+   public InMemoryJCacheLoader(ConcurrentMap<K, V> store) {
+      this.store = store;
+   }
+
+   public static <K, V> InMemoryJCacheLoader<K, V> create() {
+      return create(new ConcurrentHashMap<>());
+   }
+
+   public static <K, V> InMemoryJCacheLoader<K, V> create(ConcurrentMap<K, V> store) {
+      return new InMemoryJCacheLoader<>(store);
+   }
 
    public InMemoryJCacheLoader<K, V> store(K key, V value) {
       store.put(key, value);

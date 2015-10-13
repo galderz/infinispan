@@ -56,6 +56,7 @@ import org.infinispan.interceptors.impl.CacheWriterInterceptor;
 import org.infinispan.interceptors.impl.TransactionalStoreInterceptor;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.marshall.core.MarshalledEntryFactory;
+import org.infinispan.marshall.core.MarshalledValue;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.metadata.impl.InternalMetadataImpl;
 import org.infinispan.persistence.InitializationContextImpl;
@@ -433,7 +434,7 @@ public class PersistenceManagerImpl implements PersistenceManager {
          boolean removed = false;
          for (CacheWriter w : nonTxWriters) {
             if (mode.canPerform(configMap.get(w))) {
-               removed |= w.delete(key);
+               removed |= w.delete(MarshalledValue.unwrap(key));
             }
          }
          return removed;
@@ -481,7 +482,7 @@ public class PersistenceManagerImpl implements PersistenceManager {
             if (!context.isOriginLocal() && isLocalOnlyLoader(l))
                continue;
 
-            MarshalledEntry load = l.load(key);
+            MarshalledEntry load = l.load(MarshalledValue.unwrap(key));
             if (load != null)
                return load;
          }
