@@ -7,7 +7,7 @@ import org.infinispan.persistence.dummy.DummyInMemoryStoreConfigurationBuilder;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.testng.annotations.BeforeClass;
 
-abstract class AbstractFunctionalTest extends MultipleCacheManagersTest {
+public abstract class AbstractFunctionalTest extends MultipleCacheManagersTest {
 
    static final String DIST = "dist";
    static final String REPL = "repl";
@@ -21,11 +21,11 @@ abstract class AbstractFunctionalTest extends MultipleCacheManagersTest {
    FunctionalMapImpl<Integer, String> fmapL1;
    FunctionalMapImpl<Integer, String> fmapL2;
 
-   FunctionalMapImpl<Object, String> fmapD1;
-   FunctionalMapImpl<Object, String> fmapD2;
+   protected FunctionalMapImpl<Object, String> fmapD1;
+   protected FunctionalMapImpl<Object, String> fmapD2;
 
-   FunctionalMapImpl<Object, String> fmapR1;
-   FunctionalMapImpl<Object, String> fmapR2;
+   protected FunctionalMapImpl<Object, String> fmapR1;
+   protected FunctionalMapImpl<Object, String> fmapR2;
 
    @Override
    protected void createCacheManagers() throws Throwable {
@@ -50,6 +50,10 @@ abstract class AbstractFunctionalTest extends MultipleCacheManagersTest {
       cacheManagers.stream().forEach(cm -> cm.defineConfiguration(REPL, replBuilder.build()));
       // Wait for cluster to form
       waitForClusterToForm(DIST, REPL);
+   }
+
+   protected ConfigurationBuilder baseConfiguration() {
+      return new ConfigurationBuilder();
    }
 
    @Override

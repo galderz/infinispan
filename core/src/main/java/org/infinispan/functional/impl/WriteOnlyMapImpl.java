@@ -21,11 +21,15 @@ import org.infinispan.commons.api.functional.Param;
 import org.infinispan.commons.api.functional.Param.FutureMode;
 import org.infinispan.commons.util.CloseableIteratorSet;
 import org.infinispan.commons.util.Experimental;
+import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.context.InvocationContext;
+import org.infinispan.context.InvocationContextFactory;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import static org.infinispan.functional.impl.FunctionalInvocations.invoke;
+import static org.infinispan.functional.impl.FunctionalInvocations.invokeTx;
+import static org.infinispan.functional.impl.FunctionalInvocations.invokeTxAsync;
 
 /**
  * Write-only map implementation.
@@ -55,10 +59,32 @@ public final class WriteOnlyMapImpl<K, V> extends AbstractFunctionalMap<K, V> im
       log.tracef("Invoked eval(k=%s, %s)", key, params);
       Param<FutureMode> futureMode = params.get(FutureMode.ID);
       WriteOnlyKeyCommand cmd = fmap.cmdFactory().buildWriteOnlyKeyCommand(key, f, params);
-      return withFuture(futureMode, fmap.asyncExec(), () -> {
-         invoke(fmap.cache, 1, Optional.of(cmd.getKeyLockOwner()), (ctx) -> fmap.chain().invoke(ctx, cmd));
-         return null;
-      });
+      Optional<Object> cmdId = Optional.of(cmd.getKeyLockOwner());
+
+      Configuration config = fmap.cache.getCacheConfiguration();
+      if (config.transaction().transactionMode().isTransactional()) {
+         if (futureMode.get() == FutureMode.COMPLETED) {
+            // TODO: Turn ctx parameterized function into a BiFunction and cache
+            invokeTx(fmap.cache, cmdId, config, (ctx) -> fmap.chain().invoke(ctx, cmd));
+            return null;
+         } else {
+            return invokeTxAsync(fmap.cache, cmdId, config, (ctx) -> (Void) fmap.chain().invoke(ctx, cmd));
+         }
+      } else {
+         // Non-transactional
+         InvocationContextFactory invCtxFactory = fmap.cache.getComponentRegistry().getComponent(InvocationContextFactory.class);
+         InvocationContext ctx = invCtxFactory.createInvocationContext(true, 1);
+         ctx.setLockOwner(cmd.getKeyLockOwner());
+         if (futureMode.get() == FutureMode.COMPLETED)
+            return CompletableFuture.completedFuture((Void) fmap.chain().invoke(ctx, cmd));
+         else
+            return CompletableFuture.supplyAsync(() -> (Void) fmap.chain().invoke(ctx, cmd), fmap.asyncExec());
+      }
+
+//      return withFuture(futureMode, fmap.asyncExec(), () -> {
+//         invoke(fmap.cache, 1, Optional.of(cmd.getKeyLockOwner()), (ctx) -> fmap.chain().invoke(ctx, cmd));
+//         return null;
+//      });
    }
 
    @Override

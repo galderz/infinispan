@@ -22,15 +22,15 @@ public final class FunctionalTestUtils {
 
    static final Random R = new Random();
 
-   static <K> FunctionalMap.ReadOnlyMap<K, String> ro(FunctionalMapImpl<K, String> fmap) {
+   public static <K> FunctionalMap.ReadOnlyMap<K, String> ro(FunctionalMapImpl<K, String> fmap) {
       return ReadOnlyMapImpl.create(fmap);
    }
 
-   static <K> FunctionalMap.WriteOnlyMap<K, String> wo(FunctionalMapImpl<K, String> fmap) {
+   public static <K> FunctionalMap.WriteOnlyMap<K, String> wo(FunctionalMapImpl<K, String> fmap) {
       return WriteOnlyMapImpl.create(fmap);
    }
 
-   static <K> FunctionalMap.ReadWriteMap<K, String> rw(FunctionalMapImpl<K, String> fmap) {
+   public static <K> FunctionalMap.ReadWriteMap<K, String> rw(FunctionalMapImpl<K, String> fmap) {
       return ReadWriteMapImpl.create(fmap);
    }
 
