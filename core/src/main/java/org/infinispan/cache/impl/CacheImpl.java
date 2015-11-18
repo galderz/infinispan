@@ -1,5 +1,7 @@
 package org.infinispan.cache.impl;
 
+import com.github.kristofa.brave.ClientTracer;
+import com.github.kristofa.brave.SpanId;
 import org.infinispan.AdvancedCache;
 import org.infinispan.CacheCollection;
 import org.infinispan.CacheSet;
@@ -77,6 +79,7 @@ import org.infinispan.stats.impl.StatsImpl;
 import org.infinispan.stream.StreamMarshalling;
 import org.infinispan.stream.impl.local.ValueCacheCollection;
 import org.infinispan.topology.LocalTopologyManager;
+import org.infinispan.trace.BraveTracer;
 import org.infinispan.transaction.impl.TransactionCoordinator;
 import org.infinispan.transaction.impl.TransactionTable;
 import org.infinispan.transaction.xa.TransactionXaAdapter;
@@ -91,15 +94,7 @@ import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAResource;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -1117,6 +1112,10 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
       Set<Flag> flags = addUnsafeFlags(explicitFlags);
       Metadata merged = applyDefaultMetadata(metadata);
       PutKeyValueCommand command = commandsFactory.buildPutKeyValueCommand(key, value, merged, flags);
+
+      ClientTracer clientTracer = BraveTracer.brave.clientTracer();
+      clientTracer.startNewSpan("boo-mooo-" + new Random().nextLong());
+
       ctx.setLockOwner(command.getKeyLockOwner());
       return (V) executeCommandAndCommitIfNeeded(ctx, command);
    }

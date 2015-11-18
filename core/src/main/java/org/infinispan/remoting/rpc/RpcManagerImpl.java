@@ -15,6 +15,8 @@ import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.TopologyAffectedCommand;
 import org.infinispan.commands.remote.CacheRpcCommand;
+import org.infinispan.commands.remote.SingleRpcCommand;
+import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.util.InfinispanCollections;
 import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
@@ -38,6 +40,7 @@ import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
 import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.topology.CacheTopology;
+import org.infinispan.trace.BraveTracer;
 import org.infinispan.util.TimeService;
 import org.infinispan.util.concurrent.CompletableFutures;
 import org.infinispan.util.logging.Log;
@@ -222,6 +225,9 @@ public class RpcManagerImpl implements RpcManager, JmxStatisticsExposer {
          } else {
             throw new CacheException("Unexpected exception replicating command", cause);
          }
+      } finally {
+         if (rpc instanceof PutKeyValueCommand)
+            BraveTracer.brave.clientTracer().setClientReceived();
       }
    }
 

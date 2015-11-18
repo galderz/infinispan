@@ -58,6 +58,8 @@ public class SyncReplTest extends MultipleCacheManagersTest {
       cache2.remove(k);
       assert cache1.isEmpty();
       assert cache2.isEmpty();
+
+      TestingUtil.sleepRandom(20000);
    }
 
    public void testMultpleCachesOnSharedTransport() {

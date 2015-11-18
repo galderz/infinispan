@@ -1,8 +1,11 @@
 package org.infinispan.remoting.transport.jgroups;
 
+import com.github.kristofa.brave.Brave;
 import org.infinispan.IllegalLifecycleStateException;
 import org.infinispan.commands.FlagAffectedCommand;
 import org.infinispan.commands.ReplicableCommand;
+import org.infinispan.commands.remote.SingleRpcCommand;
+import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commons.CacheException;
 import org.infinispan.context.Flag;
 import org.infinispan.remoting.inboundhandler.DeliverOrder;
@@ -11,6 +14,7 @@ import org.infinispan.remoting.inboundhandler.Reply;
 import org.infinispan.remoting.responses.CacheNotFoundResponse;
 import org.infinispan.remoting.responses.ExceptionResponse;
 import org.infinispan.remoting.responses.Response;
+import org.infinispan.trace.BraveTracer;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.infinispan.xsite.XSiteReplicateCommand;
@@ -294,6 +298,9 @@ public class CommandAwareRpcDispatcher extends RpcDispatcher {
          msg = constructMessage(buf, null, mode, rsvp, deliverOrder);
          opts = new RequestOptions(mode, timeout, true, filter);
       }
+
+      if (command instanceof SingleRpcCommand && ((SingleRpcCommand) command).getCommand() instanceof PutKeyValueCommand)
+         BraveTracer.brave.clientTracer().setClientSent();
 
       GroupRequest<Response> request = cast(dests, msg, opts, false);
       if (mode == ResponseMode.GET_NONE)

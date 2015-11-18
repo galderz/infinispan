@@ -105,7 +105,23 @@
          <artifactId>metainf-services</artifactId>
          <optional>true</optional>
       </dependency>
-      
+
+      <dependency>
+         <groupId>com.github.kristofa</groupId>
+         <artifactId>brave-core</artifactId>
+         <version>3.1.0</version>
+      </dependency>
+      <dependency>
+         <groupId>com.github.kristofa</groupId>
+         <artifactId>brave-spancollector-scribe</artifactId>
+         <version>3.1.0</version>
+      </dependency>
+      <dependency>
+         <groupId>org.slf4j</groupId>
+         <artifactId>slf4j-api</artifactId>
+         <scope>compile</scope>
+      </dependency>
+
    </dependencies>
 
    <build>
