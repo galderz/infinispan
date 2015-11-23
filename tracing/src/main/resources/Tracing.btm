@@ -1,0 +1,17 @@
+# ByteMan rules for distributed tracing
+
+RULE interceptor chain
+CLASS org.infinispan.interceptors.InterceptorChain
+METHOD invoke
+AT ENTRY
+IF TRUE
+DO org.infinispan.tracing.Tracer.trace($2)
+ENDRULE
+
+RULE message dispatcher
+CLASS org.jgroups.blocks.MessageDispatcher
+METHOD cast(java.util.Collection, org.jgroups.Message, org.jgroups.blocks.RequestOptions, boolean)
+AT ENTRY
+IF TRUE
+DO org.infinispan.tracing.Tracer.traceDispatch($2)
+ENDRULE
