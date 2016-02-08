@@ -79,11 +79,17 @@ public class DeadlockDetectingInterceptor extends DDSequentialInterceptor {
       if (ctx.isOriginLocal()) {
          globalTransaction.setRemoteLockIntention(command.getAffectedKeys());
       }
-      Object result = ctx.forkInvocationSync(command);
-      if (ctx.isOriginLocal()) {
-         globalTransaction.setRemoteLockIntention(Collections.emptySet());
-      }
-      return ctx.shortCircuit(result);
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable != null)
+            throw throwable;
+
+         if (ctx.isOriginLocal()) {
+            globalTransaction.setRemoteLockIntention(Collections.emptySet());
+         }
+         return null;
+      });
+
+      return ctx.continueInvocation();
    }
 
 

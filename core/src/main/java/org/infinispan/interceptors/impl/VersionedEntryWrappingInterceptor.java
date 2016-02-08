@@ -48,46 +48,59 @@ public class VersionedEntryWrappingInterceptor extends EntryWrappingInterceptor 
          versionedPrepareCommand.setVersionsSeen(ctx.getCacheTransaction().getVersionsRead());
       }
       wrapEntriesForPrepare(ctx, command);
-      EntryVersionsMap newVersionData= null;
+      EntryVersionsMap originVersionData;
       if (ctx.isOriginLocal() && !ctx.getCacheTransaction().isFromStateTransfer()) {
-         newVersionData =
+         originVersionData =
                cdl.createNewVersionsAndCheckForWriteSkews(versionGenerator, ctx, versionedPrepareCommand);
+      } else {
+         originVersionData = null;
       }
 
-      Object retval = ctx.forkInvocationSync(command);
+      return ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable != null) {
+            throw throwable;
+         }
 
-      if (!ctx.isOriginLocal()) {
-         newVersionData =
-               cdl.createNewVersionsAndCheckForWriteSkews(versionGenerator, ctx, versionedPrepareCommand);
-      }
-      if (command.isOnePhaseCommit()) {
-         ctx.getCacheTransaction().setUpdatedEntryVersions(versionedPrepareCommand.getVersionsSeen());
-      }
+         EntryVersionsMap newVersionData;
+         if (ctx.isOriginLocal()) {
+            newVersionData = originVersionData;
+         } else {
+            newVersionData =
+                  cdl.createNewVersionsAndCheckForWriteSkews(versionGenerator, ctx, versionedPrepareCommand);
+         }
 
-      if (newVersionData != null) {
-         retval = newVersionData;
-      }
-      if (command.isOnePhaseCommit()) {
-         commitContextEntries(ctx, null, null);
-      }
-      return ctx.shortCircuit(retval);
+         if (command.isOnePhaseCommit()) {
+            ctx.getCacheTransaction().setUpdatedEntryVersions(versionedPrepareCommand.getVersionsSeen());
+         }
+
+         if (command.isOnePhaseCommit()) {
+            commitContextEntries(ctx, null, null);
+         }
+         if (newVersionData != null)
+            return CompletableFuture.completedFuture(newVersionData);
+
+         return null;
+      });
    }
 
    @Override
    public CompletableFuture<Void> visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
-      VersionedCommitCommand versionedCommitCommand = (VersionedCommitCommand) command;
-      try {
-         if (ctx.isOriginLocal()) {
-            versionedCommitCommand.setUpdatedVersions(ctx.getCacheTransaction().getUpdatedEntryVersions());
-         }
-
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
          if (!ctx.isOriginLocal()) {
-            ctx.getCacheTransaction().setUpdatedEntryVersions(versionedCommitCommand.getUpdatedVersions());
+            VersionedCommitCommand versionedCommitCommand = (VersionedCommitCommand) command1;
+            ((TxInvocationContext<?>) ctx1).getCacheTransaction()
+                  .setUpdatedEntryVersions(versionedCommitCommand.getUpdatedVersions());
          }
          commitContextEntries(ctx, null, null);
+         return null;
+      });
+
+      VersionedCommitCommand versionedCommitCommand = (VersionedCommitCommand) command;
+      if (ctx.isOriginLocal()) {
+         versionedCommitCommand.setUpdatedVersions(ctx.getCacheTransaction().getUpdatedEntryVersions());
       }
+
+      return ctx.continueInvocation();
    }
 
    @Override

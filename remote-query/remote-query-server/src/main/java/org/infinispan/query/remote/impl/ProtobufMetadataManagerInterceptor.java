@@ -171,14 +171,17 @@ final class ProtobufMetadataManagerInterceptor extends BaseCustomSequentialInter
 
    @Override
    public CompletableFuture<Void> visitPrepareCommand(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
-      final Object result = ctx.forkInvocationSync(command);
-      if (!ctx.isOriginLocal()) {
-         // apply updates to the serialization context
-         for (WriteCommand wc : command.getModifications()) {
-            wc.acceptVisitor(ctx, serializationContextUpdaterVisitor);
+      return ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable == null) {
+            if (!ctx.isOriginLocal()) {
+               // apply updates to the serialization context
+               for (WriteCommand wc : command.getModifications()) {
+                  wc.acceptVisitor(ctx, serializationContextUpdaterVisitor);
+               }
+            }
          }
-      }
-      return ctx.shortCircuit(result);
+         return null;
+      });
    }
 
    @Override
@@ -208,32 +211,33 @@ final class ProtobufMetadataManagerInterceptor extends BaseCustomSequentialInter
          }
       }
 
-      final Object result = ctx.forkInvocationSync(command);
+      return ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable == null) {
+            if (command.isSuccessful()) {
+               FileDescriptorSource source =
+                     new FileDescriptorSource().addProtoFile((String) key, (String) value);
 
-      if (command.isSuccessful()) {
-         FileDescriptorSource source = new FileDescriptorSource()
-               .addProtoFile((String) key, (String) value);
+               ProgressCallback progressCallback = null;
+               if (ctx.isOriginLocal() && !command.hasFlag(Flag.PUT_FOR_STATE_TRANSFER)) {
+                  progressCallback = new ProgressCallback(ctx);
+                  source.withProgressCallback(progressCallback);
+               } else {
+                  source.withProgressCallback(EMPTY_CALLBACK);
+               }
 
-         ProgressCallback progressCallback = null;
-         if (ctx.isOriginLocal() && !command.hasFlag(Flag.PUT_FOR_STATE_TRANSFER)) {
-            progressCallback = new ProgressCallback(ctx);
-            source.withProgressCallback(progressCallback);
-         } else {
-            source.withProgressCallback(EMPTY_CALLBACK);
+               try {
+                  serializationContext.registerProtoFiles(source);
+               } catch (IOException | DescriptorParserException e) {
+                  throw new CacheException("Failed to parse proto file : " + key, e);
+               }
+
+               if (progressCallback != null) {
+                  updateGlobalErrors(ctx, progressCallback.getErrorFiles());
+               }
+            }
          }
-
-         try {
-            serializationContext.registerProtoFiles(source);
-         } catch (IOException | DescriptorParserException e) {
-            throw new CacheException("Failed to parse proto file : " + key, e);
-         }
-
-         if (progressCallback != null) {
-            updateGlobalErrors(ctx, progressCallback.getErrorFiles());
-         }
-      }
-
-      return ctx.shortCircuit(result);
+         return null;
+      });
    }
 
    @Override
@@ -261,27 +265,28 @@ final class ProtobufMetadataManagerInterceptor extends BaseCustomSequentialInter
       VisitableCommand cmd = commandsFactory.buildLockControlCommand(ERRORS_KEY_SUFFIX, EnumUtil.EMPTY_BIT_SET, null);
       invoker.invoke(ctx.clone(), cmd);
 
-      final Object result = ctx.forkInvocationSync(command);
+      return ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable == null) {
+            ProgressCallback progressCallback = null;
+            if (ctx.isOriginLocal()) {
+               progressCallback = new ProgressCallback(ctx);
+               source.withProgressCallback(progressCallback);
+            } else {
+               source.withProgressCallback(EMPTY_CALLBACK);
+            }
 
-      ProgressCallback progressCallback = null;
-      if (ctx.isOriginLocal()) {
-         progressCallback = new ProgressCallback(ctx);
-         source.withProgressCallback(progressCallback);
-      } else {
-         source.withProgressCallback(EMPTY_CALLBACK);
-      }
+            try {
+               serializationContext.registerProtoFiles(source);
+            } catch (IOException | DescriptorParserException e) {
+               throw new CacheException(e);
+            }
 
-      try {
-         serializationContext.registerProtoFiles(source);
-      } catch (IOException | DescriptorParserException e) {
-         throw new CacheException(e);
-      }
-
-      if (progressCallback != null) {
-         updateGlobalErrors(ctx, progressCallback.getErrorFiles());
-      }
-
-      return ctx.shortCircuit(result);
+            if (progressCallback != null) {
+               updateGlobalErrors(ctx, progressCallback.getErrorFiles());
+            }
+         }
+         return null;
+      });
    }
 
    @Override
@@ -336,53 +341,54 @@ final class ProtobufMetadataManagerInterceptor extends BaseCustomSequentialInter
       final Object key = command.getKey();
       final Object value = command.getNewValue();
 
-      if (ctx.isOriginLocal()) {
-         if (!(key instanceof String)) {
-            throw new CacheException("The key must be a string");
-         }
-         if (!(value instanceof String)) {
-            throw new CacheException("The value must be a string");
-         }
-         if (!shouldIntercept(key)) {
-            return ctx.continueInvocation();
-         }
-         if (!((String) key).endsWith(PROTO_KEY_SUFFIX)) {
-            throw new CacheException("The key must end with \".proto\" : " + key);
-         }
-
-         // lock .errors key
-         VisitableCommand cmd = commandsFactory.buildLockControlCommand(ERRORS_KEY_SUFFIX, EnumUtil.EMPTY_BIT_SET, null);
-         invoker.invoke(ctx.clone(), cmd);
-
-         final Object result = ctx.forkInvocationSync(command);
-
-         if (command.isSuccessful()) {
-            FileDescriptorSource source = new FileDescriptorSource()
-                  .addProtoFile((String) key, (String) value);
-
-            ProgressCallback progressCallback = null;
-            if (ctx.isOriginLocal()) {
-               progressCallback = new ProgressCallback(ctx);
-               source.withProgressCallback(progressCallback);
-            } else {
-               source.withProgressCallback(EMPTY_CALLBACK);
-            }
-
-            try {
-               serializationContext.registerProtoFiles(source);
-            } catch (IOException | DescriptorParserException e) {
-               throw new CacheException("Failed to parse proto file : " + key, e);
-            }
-
-            if (progressCallback != null) {
-               updateGlobalErrors(ctx, progressCallback.getErrorFiles());
-            }
-         }
-
-         return ctx.shortCircuit(result);
-      } else {
+      if (!ctx.isOriginLocal()) {
          return ctx.continueInvocation();
       }
+      if (!(key instanceof String)) {
+         throw new CacheException("The key must be a string");
+      }
+      if (!(value instanceof String)) {
+         throw new CacheException("The value must be a string");
+      }
+      if (!shouldIntercept(key)) {
+         return ctx.continueInvocation();
+      }
+      if (!((String) key).endsWith(PROTO_KEY_SUFFIX)) {
+         throw new CacheException("The key must end with \".proto\" : " + key);
+      }
+
+      // lock .errors key
+      VisitableCommand cmd =
+            commandsFactory.buildLockControlCommand(ERRORS_KEY_SUFFIX, EnumUtil.EMPTY_BIT_SET, null);
+      invoker.invoke(ctx.clone(), cmd);
+
+      return ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable == null) {
+            if (command.isSuccessful()) {
+               FileDescriptorSource source =
+                     new FileDescriptorSource().addProtoFile((String) key, (String) value);
+
+               ProgressCallback progressCallback = null;
+               if (ctx.isOriginLocal()) {
+                  progressCallback = new ProgressCallback(ctx);
+                  source.withProgressCallback(progressCallback);
+               } else {
+                  source.withProgressCallback(EMPTY_CALLBACK);
+               }
+
+               try {
+                  serializationContext.registerProtoFiles(source);
+               } catch (IOException | DescriptorParserException e) {
+                  throw new CacheException("Failed to parse proto file : " + key, e);
+               }
+
+               if (progressCallback != null) {
+                  updateGlobalErrors(ctx, progressCallback.getErrorFiles());
+               }
+            }
+         }
+         return null;
+      });
    }
 
    @Override

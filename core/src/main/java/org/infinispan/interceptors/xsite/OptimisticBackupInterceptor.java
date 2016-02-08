@@ -19,19 +19,7 @@ public class OptimisticBackupInterceptor extends BaseBackupInterceptor {
 
    @Override
    public CompletableFuture<Void> visitPrepareCommand(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
-      //if this is an "empty" tx no point replicating it to other clusters
-      if (!shouldInvokeRemoteTxCommand(ctx))
-         return ctx.continueInvocation();
-
-      boolean isTxFromRemoteSite = isTxFromRemoteSite(command.getGlobalTransaction());
-      if (isTxFromRemoteSite) {
-         return ctx.continueInvocation();
-      }
-
-      BackupResponse backupResponse = backupSender.backupPrepare(command);
-      Object result = ctx.forkInvocationSync(command);
-      backupSender.processResponses(backupResponse, command, ctx.getTransaction());
-      return ctx.shortCircuit(result);
+      return super.visitPrepareCommand(ctx, command);
    }
 
    @Override
@@ -44,9 +32,7 @@ public class OptimisticBackupInterceptor extends BaseBackupInterceptor {
       }
 
       BackupResponse backupResponse = backupSender.backupCommit(command);
-      Object result = ctx.forkInvocationSync(command);
-      backupSender.processResponses(backupResponse, command, ctx.getTransaction());
-      return ctx.shortCircuit(result);
+      return processBackupResponse(ctx, command, backupResponse);
    }
 
    @Override
@@ -59,9 +45,7 @@ public class OptimisticBackupInterceptor extends BaseBackupInterceptor {
       }
 
       BackupResponse backupResponse = backupSender.backupRollback(command);
-      Object result = ctx.forkInvocationSync(command);
-      backupSender.processResponses(backupResponse, command, ctx.getTransaction());
-      return ctx.shortCircuit(result);
+      return processBackupResponse(ctx, command, backupResponse);
    }
 
    private boolean shouldRollbackRemoteTxCommand(TxInvocationContext ctx) {

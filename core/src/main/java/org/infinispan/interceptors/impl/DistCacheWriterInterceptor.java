@@ -70,62 +70,97 @@ public class DistCacheWriterInterceptor extends CacheWriterInterceptor {
 
    @Override
    public CompletableFuture<Void> visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
-      Object returnValue = ctx.forkInvocationSync(command);
-      Object key = command.getKey();
-      if (!isStoreEnabled(command) || ctx.isInTxScope() || !command.isSuccessful()) return ctx.shortCircuit(returnValue);
-      if (!isProperWriter(ctx, command, command.getKey())) return ctx.shortCircuit(returnValue);
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable != null)
+            throw throwable;
 
-      storeEntry(ctx, key, command);
-      if (getStatisticsEnabled()) cacheStores.incrementAndGet();
-      return ctx.shortCircuit(returnValue);
+         Object key = command.getKey();
+         if (!isStoreEnabled(command) || ctx.isInTxScope() || !command.isSuccessful())
+            return null;
+         if (!isProperWriter(ctx, command, command.getKey()))
+            return null;
+
+         storeEntry(ctx, key, command);
+         if (getStatisticsEnabled())
+            cacheStores.incrementAndGet();
+
+         return null;
+      });
+      return ctx.continueInvocation();
    }
 
    @Override
    public CompletableFuture<Void> visitPutMapCommand(InvocationContext ctx, PutMapCommand command) throws Throwable {
-      Object returnValue = ctx.forkInvocationSync(command);
-      if (!isStoreEnabled(command) || ctx.isInTxScope()) return ctx.shortCircuit(returnValue);
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable != null)
+            throw throwable;
 
-      Map<Object, Object> map = command.getMap();
-      int count = 0;
-      for (Object key : map.keySet()) {
-         // In non-tx mode, a node may receive the same forwarded PutMapCommand many times - but each time
-         // it must write only the keys locked on the primary owner that forwarded the command
-         if (isUsingLockDelegation && command.isForwarded() && !dm.getPrimaryLocation(key).equals(ctx.getOrigin()))
-            continue;
+         if (!isStoreEnabled(command) || ctx.isInTxScope())
+            return null;
 
-         if (isProperWriter(ctx, command, key)) {
-            storeEntry(ctx, key, command);
-            count++;
+         Map<Object, Object> map = command.getMap();
+         int count = 0;
+         for (Object key : map.keySet()) {
+            // In non-tx mode, a node may receive the same forwarded PutMapCommand many times - but each time
+            // it must write only the keys locked on the primary owner that forwarded the command
+            if (isUsingLockDelegation && command.isForwarded() &&
+                  !dm.getPrimaryLocation(key).equals(ctx.getOrigin()))
+               continue;
+
+            if (isProperWriter(ctx, command, key)) {
+               storeEntry(ctx, key, command);
+               count++;
+            }
          }
-      }
-      if (getStatisticsEnabled()) cacheStores.getAndAdd(count);
-      return ctx.shortCircuit(returnValue);
+         if (getStatisticsEnabled())
+            cacheStores.getAndAdd(count);
+
+         return null;
+      });
+      return ctx.continueInvocation();
    }
 
    @Override
    public CompletableFuture<Void> visitRemoveCommand(InvocationContext ctx, RemoveCommand command) throws Throwable {
-      Object retval = ctx.forkInvocationSync(command);
-      Object key = command.getKey();
-      if (!isStoreEnabled(command) || ctx.isInTxScope() || !command.isSuccessful()) return ctx.shortCircuit(retval);
-      if (!isProperWriter(ctx, command, key)) return ctx.shortCircuit(retval);
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable != null)
+            throw throwable;
 
-      boolean resp = persistenceManager.deleteFromAllStores(key, skipSharedStores(ctx, key, command) ? PRIVATE : BOTH);
-      log.tracef("Removed entry under key %s and got response %s from CacheStore", key, resp);
-      return ctx.shortCircuit(retval);
+         Object key = command.getKey();
+         if (!isStoreEnabled(command) || ctx.isInTxScope() || !command.isSuccessful())
+            return null;
+         if (!isProperWriter(ctx, command, key))
+            return null;
+
+         boolean resp = persistenceManager
+               .deleteFromAllStores(key, skipSharedStores(ctx, key, command) ? PRIVATE : BOTH);
+         log.tracef("Removed entry under key %s and got response %s from CacheStore", key, resp);
+
+         return null;
+      });
+      return ctx.continueInvocation();
    }
 
    @Override
    public CompletableFuture<Void> visitReplaceCommand(InvocationContext ctx, ReplaceCommand command)
          throws Throwable {
-      Object returnValue = ctx.forkInvocationSync(command);
-      Object key = command.getKey();
-      if (!isStoreEnabled(command) || ctx.isInTxScope() || !command.isSuccessful()) return ctx.shortCircuit(returnValue);
-      if (!isProperWriter(ctx, command, command.getKey())) return ctx.shortCircuit(returnValue);
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable != null)
+            throw throwable;
 
-      storeEntry(ctx, key, command);
-      if (getStatisticsEnabled()) cacheStores.incrementAndGet();
+         Object key = command.getKey();
+         if (!isStoreEnabled(command) || ctx.isInTxScope() || !command.isSuccessful())
+            return null;
+         if (!isProperWriter(ctx, command, command.getKey()))
+            return null;
 
-      return ctx.shortCircuit(returnValue);
+         storeEntry(ctx, key, command);
+         if (getStatisticsEnabled())
+            cacheStores.incrementAndGet();
+
+         return null;
+      });
+      return ctx.continueInvocation();
    }
 
    @Override

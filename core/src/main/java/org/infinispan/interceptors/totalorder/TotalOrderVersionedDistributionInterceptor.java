@@ -74,9 +74,4 @@ public class TotalOrderVersionedDistributionInterceptor extends VersionedDistrib
          transactionRemotelyPrepared(ctx);
       }
    }
-
-   @Override
-   protected Log getLog() {
-      return log;
-   }
 }

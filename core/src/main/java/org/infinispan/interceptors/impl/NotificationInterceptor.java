@@ -18,6 +18,14 @@ import java.util.concurrent.CompletableFuture;
  */
 public class NotificationInterceptor extends DDSequentialInterceptor {
    private CacheNotifier notifier;
+   private ReturnHandler transactionCompleteReturnHandler = (ctx1, command1, rv, throwable) -> {
+      if (throwable != null)
+         return null;
+
+      boolean successful = !(command1 instanceof RollbackCommand);
+      notifier.notifyTransactionCompleted(((TxInvocationContext) ctx1).getGlobalTransaction(), successful, ctx1);
+      return null;
+   };
 
    @Inject
    public void injectDependencies(CacheNotifier notifier) {
@@ -26,22 +34,19 @@ public class NotificationInterceptor extends DDSequentialInterceptor {
 
    @Override
    public CompletableFuture<Void> visitPrepareCommand(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
-      Object retval = ctx.forkInvocationSync(command);
-      if (command.isOnePhaseCommit()) notifier.notifyTransactionCompleted(ctx.getGlobalTransaction(), true, ctx);
-      return ctx.shortCircuit(retval);
+      if (!command.isOnePhaseCommit())
+         return ctx.continueInvocation();
+
+      return ctx.onReturn(transactionCompleteReturnHandler);
    }
 
    @Override
    public CompletableFuture<Void> visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
-      Object retval = ctx.forkInvocationSync(command);
-      notifier.notifyTransactionCompleted(ctx.getGlobalTransaction(), true, ctx);
-      return ctx.shortCircuit(retval);
+      return ctx.onReturn(transactionCompleteReturnHandler);
    }
 
    @Override
    public CompletableFuture<Void> visitRollbackCommand(TxInvocationContext ctx, RollbackCommand command) throws Throwable {
-      Object retval = ctx.forkInvocationSync(command);
-      notifier.notifyTransactionCompleted(ctx.getGlobalTransaction(), false, ctx);
-      return ctx.shortCircuit(retval);
+      return ctx.onReturn(transactionCompleteReturnHandler);
    }
 }

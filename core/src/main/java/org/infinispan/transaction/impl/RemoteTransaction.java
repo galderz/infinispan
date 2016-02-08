@@ -16,6 +16,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Defines the state of a remotely originated transaction.
@@ -27,6 +29,7 @@ public class RemoteTransaction extends AbstractCacheTransaction implements Clone
 
    private static final Log log = LogFactory.getLog(RemoteTransaction.class);
    private static final boolean trace = log.isTraceEnabled();
+   private static final CompletableFuture<Void> INITIAL_FUTURE = CompletableFuture.completedFuture(null);
 
    /**
     * This int should be set to the highest topology id for transactions received via state transfer. During state
@@ -40,6 +43,9 @@ public class RemoteTransaction extends AbstractCacheTransaction implements Clone
 
    private volatile TotalOrderRemoteTransactionState transactionState;
    private final Object transactionStateLock = new Object();
+
+   private final AtomicReference<CompletableFuture<Void>> synchronization =
+         new AtomicReference<>(INITIAL_FUTURE);
 
    public RemoteTransaction(WriteCommand[] modifications, GlobalTransaction tx, int topologyId,
                             Equivalence<Object> keyEquivalence, long txCreationTime) {
@@ -149,6 +155,14 @@ public class RemoteTransaction extends AbstractCacheTransaction implements Clone
             transactionState = new TotalOrderRemoteTransactionState(getGlobalTransaction());
          }
          return transactionState;
+      }
+   }
+
+   public final CompletableFuture<Void> enterSynchronizationAsync(CompletableFuture<Void> releaseFuture) {
+      while (true) {
+         CompletableFuture<Void> currentFuture = synchronization.get();
+         if (synchronization.compareAndSet(currentFuture, releaseFuture))
+            return currentFuture;
       }
    }
 }

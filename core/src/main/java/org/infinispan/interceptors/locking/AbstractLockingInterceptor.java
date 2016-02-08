@@ -45,6 +45,11 @@ public abstract class AbstractLockingInterceptor extends DDSequentialInterceptor
    protected DataContainer<Object, Object> dataContainer;
    protected ClusteringDependentLogic cdl;
 
+   protected ReturnHandler unlockAllReturnHandler = (ctx1, command1, rv, throwable) -> {
+      lockManager.unlockAll(ctx1);
+      return null;
+   };
+
    protected abstract Log getLog();
 
    @Inject
@@ -91,30 +96,25 @@ public abstract class AbstractLockingInterceptor extends DDSequentialInterceptor
 
    // We need this method in here because of putForExternalRead
    protected final CompletableFuture<Void> visitNonTxDataWriteCommand(InvocationContext ctx, DataWriteCommand command) throws Throwable {
-      try {
-         if (hasSkipLocking(command) || !shouldLockKey(command.getKey())) {
-            return ctx.shortCircuit(ctx.forkInvocationSync(command));
-         }
-         lockAndRecord(ctx, command.getKey(), getLockTimeoutMillis(command));
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
-         lockManager.unlockAll(ctx);
+      if (hasSkipLocking(command) || !shouldLockKey(command.getKey())) {
+         return ctx.continueInvocation();
       }
+
+      ctx.onReturn(unlockAllReturnHandler);
+      lockAndRecord(ctx, command.getKey(), getLockTimeoutMillis(command));
+      return ctx.continueInvocation();
    }
 
    @Override
    public final CompletableFuture<Void> visitInvalidateCommand(InvocationContext ctx, InvalidateCommand command) throws Throwable {
-      try {
-         if (hasSkipLocking(command)) {
-            return ctx.shortCircuit(ctx.forkInvocationSync(command));
-         }
-         lockAllAndRecord(ctx, Arrays.asList(command.getKeys()), getLockTimeoutMillis(command));
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
-         if (!ctx.isInTxScope()) {
-            lockManager.unlockAll(ctx);
-         }
+      if (hasSkipLocking(command)) {
+         return ctx.continueInvocation();
       }
+      if (!ctx.isInTxScope()) {
+         ctx.onReturn(unlockAllReturnHandler);
+      }
+      lockAllAndRecord(ctx, Arrays.asList(command.getKeys()), getLockTimeoutMillis(command));
+      return ctx.continueInvocation();
    }
 
    @Override
@@ -129,27 +129,31 @@ public abstract class AbstractLockingInterceptor extends DDSequentialInterceptor
       }
 
       final Object[] keys = command.getKeys();
-      try {
-         if (keys != null && keys.length >= 1) {
-            ArrayList<Object> keysToInvalidate = new ArrayList<>(keys.length);
-            for (Object key : keys) {
-               try {
-                  lockAndRecord(ctx, key, 0);
-                  keysToInvalidate.add(key);
-               } catch (TimeoutException te) {
-                  getLog().unableToLockToInvalidate(key, cdl.getAddress());
-               }
-            }
-            if (keysToInvalidate.isEmpty()) {
-               return ctx.shortCircuit(null);
-            }
-            command.setKeys(keysToInvalidate.toArray());
-         }
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
-         command.setKeys(keys);
-         if (!ctx.isInTxScope()) lockManager.unlockAll(ctx);
+      if (keys == null || keys.length < 1) {
+         return ctx.shortCircuit(null);
       }
+
+      ArrayList<Object> keysToInvalidate = new ArrayList<>(keys.length);
+      for (Object key : keys) {
+         try {
+            lockAndRecord(ctx, key, 0);
+            keysToInvalidate.add(key);
+         } catch (TimeoutException te) {
+            getLog().unableToLockToInvalidate(key, cdl.getAddress());
+         }
+      }
+      if (keysToInvalidate.isEmpty()) {
+         return ctx.shortCircuit(null);
+      }
+
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         command.setKeys(keys);
+         if (!ctx.isInTxScope())
+            lockManager.unlockAll(ctx);
+         return null;
+      });
+      command.setKeys(keysToInvalidate.toArray());
+      return ctx.continueInvocation();
    }
 
    @Override

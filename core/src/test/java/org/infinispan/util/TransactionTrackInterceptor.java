@@ -68,43 +68,39 @@ public class TransactionTrackInterceptor extends BaseCustomSequentialInterceptor
 
    @Override
    public CompletableFuture<Void> visitClearCommand(InvocationContext ctx, ClearCommand command) throws Throwable {
-      try {
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
+      return ctx.onReturn((ctx1, command1, rv, throwable) -> {
          if (ctx.isOriginLocal()) {
             addLocalTransaction(CLEAR_TRANSACTION);
             //in total order, the transactions are self delivered. So, we simulate the self-deliver of the clear command.
             seen(CLEAR_TRANSACTION, false);
          }
          seen(CLEAR_TRANSACTION, ctx.isOriginLocal());
-      }
+         return null;
+      });
    }
 
    @Override
    public CompletableFuture<Void> visitPrepareCommand(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
-      try {
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
+      return ctx.onReturn((ctx1, command1, rv, throwable) -> {
          seen(command.getGlobalTransaction(), ctx.isOriginLocal());
-      }
+         return null;
+      });
    }
 
    @Override
    public CompletableFuture<Void> visitRollbackCommand(TxInvocationContext ctx, RollbackCommand command) throws Throwable {
-      try {
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
+      return ctx.onReturn((ctx1, command1, rv, throwable) -> {
          seen(command.getGlobalTransaction(), ctx.isOriginLocal());
-      }
+         return null;
+      });
    }
 
    @Override
    public CompletableFuture<Void> visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
-      try {
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
+      return ctx.onReturn((ctx1, command1, rv, throwable) -> {
          seen(command.getGlobalTransaction(), ctx.isOriginLocal());
-      }
+         return null;
+      });
    }
 
    public boolean awaitForLocalCompletion(GlobalTransaction globalTransaction, long timeout, TimeUnit unit) throws InterruptedException {
@@ -161,14 +157,13 @@ public class TransactionTrackInterceptor extends BaseCustomSequentialInterceptor
 
    @Override
    protected CompletableFuture<Void> handleDefault(InvocationContext ctx, VisitableCommand command) throws Throwable {
-      try {
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
+      return ctx.onReturn((ctx1, command1, rv, throwable) -> {
          if (ctx.isOriginLocal() && ctx.isInTxScope()) {
             GlobalTransaction globalTransaction = ((TxInvocationContext) ctx).getGlobalTransaction();
             addLocalTransaction(globalTransaction);
          }
-      }
+         return null;
+      });
    }
 
    private synchronized void addLocalTransaction(GlobalTransaction globalTransaction) {

@@ -1,10 +1,7 @@
 package org.infinispan.stats.topK;
 
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-
-import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.commands.read.GetAllCommand;
+import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.context.InvocationContext;
@@ -22,6 +19,9 @@ import org.infinispan.transaction.WriteSkewException;
 import org.infinispan.util.concurrent.locks.LockManager;
 import org.infinispan.util.logging.LogFactory;
 
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Intercepts the VisitableCommands to calculate the corresponding top-key values.
  *
@@ -35,6 +35,18 @@ public class CacheUsageInterceptor extends BaseCustomSequentialInterceptor {
    private static final Log log = LogFactory.getLog(CacheUsageInterceptor.class, Log.class);
    private StreamSummaryContainer streamSummaryContainer;
    private DistributionManager distributionManager;
+
+   private ReturnHandler writeSkewReturnHandler = (ctx1, command1, rv, throwable) -> {
+      if (throwable instanceof WriteSkewException) {
+         WriteSkewException wse = (WriteSkewException) throwable;
+         Object key = wse.getKey();
+         if (streamSummaryContainer.isEnabled() && key != null && ctx1.isOriginLocal()) {
+            streamSummaryContainer.addWriteSkewFailed(key);
+         }
+         throw wse;
+      }
+      return null;
+   };
 
    @Override
    public CompletableFuture<Void> visitGetKeyValueCommand(InvocationContext ctx, GetKeyValueCommand command) throws Throwable {
@@ -59,31 +71,17 @@ public class CacheUsageInterceptor extends BaseCustomSequentialInterceptor {
 
    @Override
    public CompletableFuture<Void> visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
-      try {
-         if (streamSummaryContainer.isEnabled() && ctx.isOriginLocal()) {
-            streamSummaryContainer.addPut(command.getKey(), isRemote(command.getKey()));
-         }
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } catch (WriteSkewException wse) {
-         Object key = wse.getKey();
-         if (streamSummaryContainer.isEnabled() && key != null && ctx.isOriginLocal()) {
-            streamSummaryContainer.addWriteSkewFailed(key);
-         }
-         throw wse;
+      ctx.onReturn(writeSkewReturnHandler);
+
+      if (streamSummaryContainer.isEnabled() && ctx.isOriginLocal()) {
+         streamSummaryContainer.addPut(command.getKey(), isRemote(command.getKey()));
       }
+      return ctx.continueInvocation();
    }
 
    @Override
    public CompletableFuture<Void> visitPrepareCommand(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
-      try {
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } catch (WriteSkewException wse) {
-         Object key = wse.getKey();
-         if (streamSummaryContainer.isEnabled() && key != null && ctx.isOriginLocal()) {
-            streamSummaryContainer.addWriteSkewFailed(key);
-         }
-         throw wse;
-      }
+      return ctx.onReturn(writeSkewReturnHandler);
    }
 
    @ManagedOperation(description = "Resets statistics gathered by this component",

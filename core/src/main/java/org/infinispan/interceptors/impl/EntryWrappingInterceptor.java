@@ -4,6 +4,7 @@ import org.infinispan.commands.AbstractVisitor;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.DataCommand;
 import org.infinispan.commands.FlagAffectedCommand;
+import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.functional.ReadOnlyKeyCommand;
 import org.infinispan.commands.functional.ReadOnlyManyCommand;
 import org.infinispan.commands.functional.ReadWriteKeyCommand;
@@ -75,7 +76,6 @@ import static org.infinispan.commons.util.Util.toStr;
  * @since 9.0
  */
 public class EntryWrappingInterceptor extends DDSequentialInterceptor {
-
    private EntryFactory entryFactory;
    protected DataContainer<Object, Object> dataContainer;
    protected ClusteringDependentLogic cdl;
@@ -92,6 +92,41 @@ public class EntryWrappingInterceptor extends DDSequentialInterceptor {
    private static final boolean trace = log.isTraceEnabled();
    private static final EnumSet<Flag> EVICT_FLAGS =
          EnumSet.of(Flag.SKIP_OWNERSHIP_CHECK, Flag.CACHE_MODE_LOCAL);
+
+   private final ReturnHandler dataReadReturnHandler = new ReturnHandler() {
+      @Override
+      public CompletableFuture<Object> handle(InvocationContext ctx, VisitableCommand command, Object rv,
+            Throwable throwable) throws Throwable {
+         AbstractDataCommand command1 = (AbstractDataCommand) command;
+         //needed because entries might be added in L1
+         if (!ctx.isInTxScope()) {
+            commitContextEntries(ctx, command1, null);
+         } else {
+            setSkipLookup(ctx, command1.getKey());
+         }
+         return null;
+      }
+   };
+
+   private ReturnHandler commitEntriesOnSuccessReturnHandler = new ReturnHandler() {
+      @Override
+      public CompletableFuture<Object> handle(InvocationContext ctx, VisitableCommand command, Object rv,
+            Throwable throwable) throws Throwable {
+         if (throwable == null) {
+            commitContextEntries(ctx, null, null);
+         }
+         return null;
+      }
+   };
+
+   private ReturnHandler commitEntriesReturnHandler = new ReturnHandler() {
+      @Override
+      public CompletableFuture<Object> handle(InvocationContext ctx, VisitableCommand command, Object rv,
+            Throwable throwable) throws Throwable {
+         commitContextEntries(ctx, null, null);
+         return null;
+      }
+   };
 
    protected Log getLog() {
       return log;
@@ -122,20 +157,16 @@ public class EntryWrappingInterceptor extends DDSequentialInterceptor {
    @Override
    public CompletableFuture<Void> visitPrepareCommand(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
       wrapEntriesForPrepare(ctx, command);
-      Object result = ctx.forkInvocationSync(command);
       if (shouldCommitDuringPrepare(command, ctx)) {
-         commitContextEntries(ctx, null, null);
+         ctx.onReturn(commitEntriesOnSuccessReturnHandler);
       }
-      return ctx.shortCircuit(result);
+      return ctx.continueInvocation();
    }
 
    @Override
    public CompletableFuture<Void> visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
-      try {
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
-         commitContextEntries(ctx, null, null);
-      }
+      ctx.onReturn(commitEntriesReturnHandler);
+      return ctx.continueInvocation();
    }
 
    @Override
@@ -148,38 +179,31 @@ public class EntryWrappingInterceptor extends DDSequentialInterceptor {
    }
 
    private CompletableFuture<Void> visitDataReadCommand(InvocationContext ctx, AbstractDataCommand command) throws Throwable {
-      try {
-         entryFactory.wrapEntryForReading(ctx, command.getKey(), null);
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
-         //needed because entries might be added in L1
-         if (!ctx.isInTxScope())
-            commitContextEntries(ctx, command, null);
-         else {
-            CacheEntry entry = ctx.lookupEntry(command.getKey());
-            if (entry != null) {
-               entry.setSkipLookup(true);
-            }
-         }
-      }
+      ctx.onReturn(dataReadReturnHandler);
+      entryFactory.wrapEntryForReading(ctx, command.getKey(), null);
+      return ctx.continueInvocation();
    }
 
    @Override
    public CompletableFuture<Void> visitGetAllCommand(InvocationContext ctx, GetAllCommand command) throws Throwable {
-      try {
-         for (Object key : command.getKeys()) {
-            entryFactory.wrapEntryForReading(ctx, key, null);
-         }
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
-         if (ctx.isInTxScope()) {
-            for (Object key : command.getKeys()) {
-               CacheEntry entry = ctx.lookupEntry(key);
-               if (entry != null) {
-                  entry.setSkipLookup(true);
-               }
+      for (Object key : command.getKeys()) {
+         entryFactory.wrapEntryForReading(ctx, key, null);
+      }
+      if (ctx.isInTxScope()) {
+         ctx.onReturn((ctx1, command1, rv, throwable) -> {
+            for (Object key : ((GetAllCommand) command1).getKeys()) {
+               setSkipLookup(ctx1, key);
             }
-         }
+            return null;
+         });
+      }
+      return ctx.continueInvocation();
+   }
+
+   private void setSkipLookup(InvocationContext ctx, Object key) {
+      CacheEntry entry = ctx.lookupEntry(key);
+      if (entry != null) {
+         entry.setSkipLookup(true);
       }
    }
 
@@ -197,7 +221,16 @@ public class EntryWrappingInterceptor extends DDSequentialInterceptor {
 
    @Override
    public final CompletableFuture<Void> visitClearCommand(InvocationContext ctx, ClearCommand command) throws Throwable {
-      return ctx.shortCircuit(invokeNextAndApplyChanges(ctx, command, command.getMetadata()));
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (!ctx.isInTxScope()) {
+            applyChanges(ctx, command, command.getMetadata());
+         }
+
+         if (trace)
+            log.tracef("The return value is %s", rv);
+         return null;
+      });
+      return ctx.continueInvocation();
    }
 
    @Override
@@ -337,47 +370,41 @@ public class EntryWrappingInterceptor extends DDSequentialInterceptor {
 
    @Override
    public CompletableFuture<Void> visitReadOnlyKeyCommand(InvocationContext ctx, ReadOnlyKeyCommand command) throws Throwable {
-      try {
-         CacheEntry entry = entryFactory.wrapEntryForReading(ctx, command.getKey(), null);
-         // Null entry is often considered to mean that entry is not available
-         // locally, but if there's no need to get remote, the read-only
-         // function needs to be executed, so force a non-null entry in
-         // context with null content
-         if (entry == null && cdl.localNodeIsOwner(command.getKey())) {
-            entryFactory.wrapEntryForReading(ctx, command.getKey(), NullCacheEntry.getInstance());
-         }
 
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
-         //needed because entries might be added in L1
-         if (!ctx.isInTxScope())
-            commitContextEntries(ctx, command, null);
-         else {
-            CacheEntry entry = ctx.lookupEntry(command.getKey());
-            if (entry != null) {
-               entry.setSkipLookup(true);
-            }
-         }
+      CacheEntry entry = entryFactory.wrapEntryForReading(ctx, command.getKey(), null);
+      // Null entry is often considered to mean that entry is not available
+      // locally, but if there's no need to get remote, the read-only
+      // function needs to be executed, so force a non-null entry in
+      // context with null content
+      if (entry == null && cdl.localNodeIsOwner(command.getKey())) {
+         entryFactory.wrapEntryForReading(ctx, command.getKey(), NullCacheEntry.getInstance());
       }
+
+      //needed because entries might be added in L1
+      if (!ctx.isInTxScope())
+         ctx.onReturn(commitEntriesReturnHandler);
+      else {
+         ctx.onReturn((ctx1, command1, rv, throwable) -> {
+            setSkipLookup(ctx1, ((ReadOnlyKeyCommand) command1).getKey());
+            return null;
+         });
+      }
+
+      return ctx.continueInvocation();
    }
 
    @Override
    public CompletableFuture<Void> visitReadOnlyManyCommand(InvocationContext ctx, ReadOnlyManyCommand command) throws Throwable {
-      try {
-         for (Object key : command.getKeys()) {
-            entryFactory.wrapEntryForReading(ctx, key, null);
-         }
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
-         if (ctx.isInTxScope()) {
-            for (Object key : command.getKeys()) {
-               CacheEntry entry = ctx.lookupEntry(key);
-               if (entry != null) {
-                  entry.setSkipLookup(true);
-               }
-            }
-         }
+      for (Object key : command.getKeys()) {
+         entryFactory.wrapEntryForReading(ctx, key, null);
       }
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         for (Object key : ((ReadOnlyManyCommand) command1).getKeys()) {
+            setSkipLookup(ctx1, key);
+         }
+         return null;
+      });
+      return ctx.continueInvocation();
    }
 
    @Override
@@ -511,84 +538,96 @@ public class EntryWrappingInterceptor extends DDSequentialInterceptor {
       }
    }
 
-   private Object invokeNextAndApplyChanges(InvocationContext ctx, FlagAffectedCommand command, Metadata metadata) throws Throwable {
-      final Object result = ctx.forkInvocationSync(command);
-
-      if (!ctx.isInTxScope()) {
-         stateTransferLock.acquireSharedTopologyLock();
-         try {
-            // We only retry non-tx write commands
-            if (command instanceof WriteCommand) {
-               WriteCommand writeCommand = (WriteCommand) command;
-               // Can't perform the check during preload or if the cache isn't clustered
-               boolean isSync = (cacheConfiguration.clustering().cacheMode().isSynchronous() &&
-                     !command.hasFlag(Flag.FORCE_ASYNCHRONOUS)) || command.hasFlag(Flag.FORCE_SYNCHRONOUS);
-               if (writeCommand.isSuccessful() && stateConsumer != null &&
-                     stateConsumer.getCacheTopology() != null) {
-                  int commandTopologyId = command.getTopologyId();
-                  int currentTopologyId = stateConsumer.getCacheTopology().getTopologyId();
-                  // TotalOrderStateTransferInterceptor doesn't set the topology id for PFERs.
-                  if (isSync && currentTopologyId != commandTopologyId && commandTopologyId != -1) {
-                     // If we were the originator of a data command which we didn't own the key at the time means it
-                     // was already committed, so there is no need to throw the OutdatedTopologyException
-                     // This will happen if we submit a command to the primary owner and it responds and then a topology
-                     // change happens before we get here
-                     if (!ctx.isOriginLocal() || !(command instanceof DataCommand) ||
-                               ctx.hasLockedKey(((DataCommand)command).getKey())) {
-                        if (trace) log.tracef("Cache topology changed while the command was executing: expected %d, got %d",
-                              commandTopologyId, currentTopologyId);
-                        // This shouldn't be necessary, as we'll have a fresh command instance when retrying
-                        writeCommand.setValueMatcher(writeCommand.getValueMatcher().matcherForRetry());
-                        throw new OutdatedTopologyException("Cache topology changed while the command was executing: expected " +
-                              commandTopologyId + ", got " + currentTopologyId);
-                     }
+   private void applyChanges(InvocationContext ctx, FlagAffectedCommand command, Metadata metadata) {
+      stateTransferLock.acquireSharedTopologyLock();
+      try {
+         // We only retry non-tx write commands
+         if (command instanceof WriteCommand) {
+            WriteCommand writeCommand = (WriteCommand) command;
+            // Can't perform the check during preload or if the cache isn't clustered
+            boolean isSync = (cacheConfiguration.clustering().cacheMode().isSynchronous() &&
+                  !command.hasFlag(Flag.FORCE_ASYNCHRONOUS)) || command.hasFlag(Flag.FORCE_SYNCHRONOUS);
+            if (writeCommand.isSuccessful() && stateConsumer != null &&
+                  stateConsumer.getCacheTopology() != null) {
+               int commandTopologyId = command.getTopologyId();
+               int currentTopologyId = stateConsumer.getCacheTopology().getTopologyId();
+               // TotalOrderStateTransferInterceptor doesn't set the topology id for PFERs.
+               if (isSync && currentTopologyId != commandTopologyId && commandTopologyId != -1) {
+                  // If we were the originator of a data command which we didn't own the key at the time means it
+                  // was already committed, so there is no need to throw the OutdatedTopologyException
+                  // This will happen if we submit a command to the primary owner and it responds and then a topology
+                  // change happens before we get here
+                  if (!ctx.isOriginLocal() || !(command instanceof DataCommand) ||
+                            ctx.hasLockedKey(((DataCommand)command).getKey())) {
+                     if (trace) log.tracef("Cache topology changed while the command was executing: expected %d, got %d",
+                           commandTopologyId, currentTopologyId);
+                     // This shouldn't be necessary, as we'll have a fresh command instance when retrying
+                     writeCommand.setValueMatcher(writeCommand.getValueMatcher().matcherForRetry());
+                     throw new OutdatedTopologyException("Cache topology changed while the command was executing: expected " +
+                           commandTopologyId + ", got " + currentTopologyId);
                   }
                }
             }
-
-            commitContextEntries(ctx, command, metadata);
-         } finally {
-            stateTransferLock.releaseSharedTopologyLock();
          }
-      }
 
-      if (trace) log.tracef("The return value is %s", result);
-      return result;
+         commitContextEntries(ctx, command, metadata);
+      } finally {
+         stateTransferLock.releaseSharedTopologyLock();
+      }
    }
 
    /**
     * Locks the value for the keys accessed by the command to avoid being override from a remote get.
     */
-   private CompletableFuture<Void> setSkipRemoteGetsAndInvokeNextForPutMapCommand(InvocationContext context, WriteCommand command) throws Throwable {
-      Object retVal = invokeNextAndApplyChanges(context, command, command.getMetadata());
-      if (context.isInTxScope()) {
-         for (Object key : command.getAffectedKeys()) {
-            CacheEntry entry = context.lookupEntry(key);
-            if (entry != null) {
-               entry.setSkipLookup(true);
+   private CompletableFuture<Void> setSkipRemoteGetsAndInvokeNextForPutMapCommand(InvocationContext ctx, WriteCommand command) throws Throwable {
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable != null)
+            throw throwable;
+
+         if (!ctx.isInTxScope()) {
+            applyChanges(ctx, command, command.getMetadata());
+         }
+
+         if (trace)
+            log.tracef("The return value is %s", rv);
+         if (ctx.isInTxScope()) {
+            for (Object key : command.getAffectedKeys()) {
+               setSkipLookup(ctx, key);
             }
          }
-      }
-      return context.shortCircuit(retVal);
+         return null;
+      });
+
+      return ctx.continueInvocation();
    }
 
    /**
     * Locks the value for the keys accessed by the command to avoid being override from a remote get.
     */
-   private CompletableFuture<Void> setSkipRemoteGetsAndInvokeNextForDataCommand(InvocationContext context, DataWriteCommand command,
+   private CompletableFuture<Void> setSkipRemoteGetsAndInvokeNextForDataCommand(InvocationContext ctx, DataWriteCommand command,
                                                                Metadata metadata) throws Throwable {
-      Object retVal = invokeNextAndApplyChanges(context, command, metadata);
-      if (context.isInTxScope()) {
-         CacheEntry entry = context.lookupEntry(command.getKey());
-         if (entry != null) {
-            entry.setSkipLookup(true);
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable != null)
+            throw throwable;
+
+         if (!ctx.isInTxScope()) {
+            applyChanges(ctx, command, metadata);
          }
-      }
-      return context.shortCircuit(retVal);
+
+         if (trace)
+            log.tracef("The return value is %s", rv);
+         if (ctx.isInTxScope()) {
+            setSkipLookup(ctx, command.getKey());
+         }
+         return null;
+      });
+      return ctx.continueInvocation();
    }
 
+   // This visitor replays the entry wrapping during remote prepare.
+   // Remote writes never request the previous value from a different node,
+   // so it should be safe to keep this synchronous.
    private final class EntryWrappingVisitor extends AbstractVisitor {
-
       @Override
       public Object visitPutMapCommand(InvocationContext ctx, PutMapCommand command) throws Throwable {
          Map<Object, Object> newMap = new HashMap<>(4);

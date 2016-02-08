@@ -57,16 +57,23 @@ public class DistributionBulkInterceptor<K, V> extends DDSequentialInterceptor {
 
    @Override
    public CompletableFuture<Void> visitEntrySetCommand(InvocationContext ctx, EntrySetCommand command) throws Throwable {
-      CacheSet<CacheEntry<K, V>> entrySet = (CacheSet<CacheEntry<K, V>>) ctx.forkInvocationSync(command);
-      if (!command.hasFlag(Flag.CACHE_MODE_LOCAL)) {
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable != null)
+            throw throwable;
+
+         if (command.hasFlag(Flag.CACHE_MODE_LOCAL))
+            return null;
+
+         CacheSet<CacheEntry<K, V>> entrySet = (CacheSet<CacheEntry<K, V>>) rv;
          if (ctx.isInTxScope()) {
             entrySet = new TxBackingEntrySet<>(Caches.getCacheWithFlags(cache, command), entrySet, command,
-                    (LocalTxInvocationContext) ctx);
+                  (LocalTxInvocationContext) ctx);
          } else {
             entrySet = new BackingEntrySet<>(Caches.getCacheWithFlags(cache, command), entrySet, command);
          }
-      }
-      return ctx.shortCircuit(entrySet);
+         return CompletableFuture.completedFuture(entrySet);
+      });
+      return ctx.continueInvocation();
    }
 
    protected static class BackingEntrySet<K, V> extends AbstractCloseableIteratorCollection<CacheEntry<K, V>, K, V>
@@ -226,17 +233,17 @@ public class DistributionBulkInterceptor<K, V> extends DDSequentialInterceptor {
    @Override
    public CompletableFuture<Void> visitKeySetCommand(InvocationContext ctx, KeySetCommand command) throws Throwable {
       CacheSet<K> keySet;
-      if (!command.hasFlag(Flag.CACHE_MODE_LOCAL)) {
-         if (ctx.isInTxScope()) {
-            keySet = new TxBackingKeySet<>(Caches.getCacheWithFlags(cache, command),
-                  cache.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL).cacheEntrySet(), command,
-                  (LocalTxInvocationContext) ctx);
-         } else {
-            keySet = new BackingKeySet<>(Caches.getCacheWithFlags(cache, command), cache.getAdvancedCache().withFlags(
-                    Flag.CACHE_MODE_LOCAL).cacheEntrySet(), command);
-         }
+      if (command.hasFlag(Flag.CACHE_MODE_LOCAL)) {
+         return ctx.continueInvocation();
+      }
+
+      if (ctx.isInTxScope()) {
+         keySet = new TxBackingKeySet<>(Caches.getCacheWithFlags(cache, command),
+               cache.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL).cacheEntrySet(), command,
+               (LocalTxInvocationContext) ctx);
       } else {
-         keySet = (CacheSet<K>) ctx.forkInvocationSync(command);
+         keySet = new BackingKeySet<>(Caches.getCacheWithFlags(cache, command), cache.getAdvancedCache().withFlags(
+                 Flag.CACHE_MODE_LOCAL).cacheEntrySet(), command);
       }
       return ctx.shortCircuit(keySet);
    }

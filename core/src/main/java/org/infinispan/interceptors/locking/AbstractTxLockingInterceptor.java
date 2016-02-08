@@ -2,7 +2,6 @@ package org.infinispan.interceptors.locking;
 
 import org.infinispan.commands.read.GetAllCommand;
 import org.infinispan.commands.tx.CommitCommand;
-import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.tx.RollbackCommand;
 import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.configuration.cache.Configurations;
@@ -29,7 +28,7 @@ import java.util.concurrent.TimeUnit;
  * @author Mircea.Markus@jboss.com
  */
 public abstract class AbstractTxLockingInterceptor extends AbstractLockingInterceptor {
-   private boolean trace = getLog().isTraceEnabled();
+   protected boolean trace = getLog().isTraceEnabled();
 
    protected RpcManager rpcManager;
    private PartitionHandlingManager partitionHandlingManager;
@@ -46,11 +45,12 @@ public abstract class AbstractTxLockingInterceptor extends AbstractLockingInterc
 
    @Override
    public CompletableFuture<Void> visitRollbackCommand(TxInvocationContext ctx, RollbackCommand command) throws Throwable {
-      try {
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
          lockManager.unlockAll(ctx);
-      }
+         return null;
+      });
+
+      return ctx.continueInvocation();
    }
 
    @Override
@@ -64,34 +64,26 @@ public abstract class AbstractTxLockingInterceptor extends AbstractLockingInterc
 
    @Override
    public CompletableFuture<Void> visitGetAllCommand(InvocationContext ctx, GetAllCommand command) throws Throwable {
-      try {
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } finally {
-         //when not invoked in an explicit tx's scope the get is non-transactional(mainly for efficiency).
-         //locks need to be released in this situation as they might have been acquired from L1.
-         if (!ctx.isInTxScope()) lockManager.unlockAll(ctx);
+      if (!ctx.isInTxScope()) {
+         ctx.onReturn((ctx1, command1, rv, throwable) -> {
+            lockManager.unlockAll(ctx1);
+            return null;
+         });
       }
+
+      return ctx.continueInvocation();
    }
 
    @Override
    public CompletableFuture<Void> visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
-      boolean releaseLocks = releaseLockOnTxCompletion(ctx);
-      try {
-         return ctx.shortCircuit(ctx.forkInvocationSync(command));
-      } catch (OutdatedTopologyException e) {
-         releaseLocks = false;
-         throw e;
-      } finally {
-         if (releaseLocks) lockManager.unlockAll(ctx);
-      }
-   }
+      ctx.onReturn((ctx1, command1, rv, throwable) -> {
+         if (throwable instanceof OutdatedTopologyException)
+            throw throwable;
 
-   protected final Object invokeNextAndCommitIf1Pc(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
-      Object result = ctx.forkInvocationSync(command);
-      if (command.isOnePhaseCommit() && releaseLockOnTxCompletion(ctx)) {
-         lockManager.unlockAll(ctx);
-      }
-      return result;
+         releaseLockOnTxCompletion(((TxInvocationContext) ctx1));
+         return null;
+      });
+      return ctx.continueInvocation();
    }
 
    /**
@@ -128,7 +120,7 @@ public abstract class AbstractTxLockingInterceptor extends AbstractLockingInterc
     *
     * @return a collection with the keys locked.
     */
-   protected final Collection<Object> lockAllOrRegisterBackupLock(TxInvocationContext<?> ctx, Collection<Object> keys,
+   protected final Collection<Object> lockAllOrRegisterBackupLock(TxInvocationContext<?> ctx, Collection<?> keys,
                                                                   long lockTimeout) throws InterruptedException {
       if (keys.isEmpty()) {
          return Collections.emptyList();
@@ -199,8 +191,12 @@ public abstract class AbstractTxLockingInterceptor extends AbstractLockingInterc
       lockAllAndRecord(ctx, keys, remaining);
    }
 
-   private boolean releaseLockOnTxCompletion(TxInvocationContext ctx) {
-      return (ctx.isOriginLocal() && !partitionHandlingManager.isTransactionPartiallyCommitted(ctx.getGlobalTransaction()) ||
-                    (!ctx.isOriginLocal() && Configurations.isSecondPhaseAsync(cacheConfiguration)));
+   protected void releaseLockOnTxCompletion(TxInvocationContext ctx) {
+      boolean shouldReleaseLocks = ctx.isOriginLocal() &&
+            !partitionHandlingManager.isTransactionPartiallyCommitted(ctx.getGlobalTransaction()) ||
+            (!ctx.isOriginLocal() && Configurations.isSecondPhaseAsync(cacheConfiguration));
+      if (shouldReleaseLocks) {
+         lockManager.unlockAll(ctx);
+      }
    }
 }
