@@ -866,15 +866,13 @@ public class TestingUtil {
    }
 
    public static AbstractDelegatingMarshaller extractCacheMarshaller(Cache cache) {
-      ComponentRegistry cr = (ComponentRegistry) extractField(cache, "componentRegistry");
-      StreamingMarshaller marshaller = cr.getComponent(StreamingMarshaller.class, KnownComponentNames.CACHE_MARSHALLER);
-      return (AbstractDelegatingMarshaller) marshaller;
+      return extractGlobalMarshaller(cache.getCacheManager());
    }
 
    public static AbstractDelegatingMarshaller extractGlobalMarshaller(EmbeddedCacheManager cm) {
       GlobalComponentRegistry gcr = (GlobalComponentRegistry) extractField(cm, "globalComponentRegistry");
       return (AbstractDelegatingMarshaller)
-            gcr.getComponent(StreamingMarshaller.class, KnownComponentNames.GLOBAL_MARSHALLER);
+            gcr.getComponent(StreamingMarshaller.class);
    }
 
    public static ExternalizerTable extractExtTable(CacheContainer cacheContainer) {

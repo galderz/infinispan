@@ -81,7 +81,7 @@ public final class CacheRpcCommandExternalizer extends AbstractExternalizer<Cach
       this.cmdExt = cmdExt;
       this.gcr = gcr;
       //Cache this locally to avoid having to look it up often:
-      this.globalMarshaller = gcr.getComponent(StreamingMarshaller.class, KnownComponentNames.GLOBAL_MARSHALLER);
+      this.globalMarshaller = gcr.getComponent(StreamingMarshaller.class);
    }
 
    @Override

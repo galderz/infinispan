@@ -1,7 +1,5 @@
 package org.infinispan.interceptors;
 
-import static org.infinispan.factories.KnownComponentNames.CACHE_MARSHALLER;
-
 import java.util.Map;
 
 import org.infinispan.commands.FlagAffectedCommand;
@@ -56,7 +54,7 @@ public class IsMarshallableInterceptor extends CommandInterceptor {
    }
 
    @Inject
-   protected void injectMarshaller(@ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller,
+   protected void injectMarshaller(StreamingMarshaller marshaller,
                                    DistributionManager distManager) {
       this.marshaller = marshaller;
       this.distManager = distManager;
