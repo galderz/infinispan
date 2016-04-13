@@ -4,10 +4,6 @@ import org.infinispan.factories.annotations.DefaultFactoryFor;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
-import org.infinispan.marshall.core.GlobalMarshaller;
-import org.infinispan.marshall.core.VersionAwareMarshaller;
-
-import static org.infinispan.factories.KnownComponentNames.*;
 
 /**
  * MarshallerFactory.
@@ -16,22 +12,11 @@ import static org.infinispan.factories.KnownComponentNames.*;
  * @since 4.0
  */
 @DefaultFactoryFor(classes = {StreamingMarshaller.class, Marshaller.class})
-public class MarshallerFactory extends NamedComponentFactory implements AutoInstantiableFactory {
+public class MarshallerFactory extends AbstractComponentFactory implements AutoInstantiableFactory {
 
    @Override
-   public <T> T construct(Class<T> componentType, String componentName) {
-      Object comp;
-      Marshaller configMarshaller =
-            globalConfiguration.serialization().marshaller();
-      boolean isVersionAwareMarshaller =
-            configMarshaller instanceof VersionAwareMarshaller;
-
-      if (isVersionAwareMarshaller) {
-         comp = new GlobalMarshaller((VersionAwareMarshaller) configMarshaller);
-      } else {
-         comp = configMarshaller;
-      }
-
+   public <T> T construct(Class<T> componentType) {
+      Marshaller comp = globalConfiguration.serialization().marshaller();
       try {
          return componentType.cast(comp);
       } catch (Exception e) {
