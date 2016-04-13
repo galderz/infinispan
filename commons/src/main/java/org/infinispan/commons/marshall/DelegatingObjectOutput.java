@@ -14,7 +14,7 @@ import java.io.OutputStream;
  */
 public class DelegatingObjectOutput extends OutputStream implements ObjectOutput {
 
-   protected final ObjectOutput objectOutput;
+   public final ObjectOutput objectOutput;
 
    public DelegatingObjectOutput(ObjectOutput objectOutput) {
       this.objectOutput = objectOutput;

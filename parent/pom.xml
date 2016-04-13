@@ -187,6 +187,7 @@
       <version.maven.surefire>2.18.1</version.maven.surefire>
       <version.maven.invoker>1.8</version.maven.invoker>
       <version.metainf-services>1.7</version.metainf-services>
+      <version.minimum-marshaller>2.0.2</version.minimum-marshaller>
       <version.jacoco>0.7.5.201505241946</version.jacoco>
       <version.pax.url>2.2.0</version.pax.url>
       <version.karaf>3.0.4</version.karaf>
@@ -982,6 +983,12 @@
              <version>${version.org.wildfly.core}</version>
              <scope>import</scope>
              <type>pom</type>
+          </dependency>
+
+          <dependency>
+             <groupId>org.mk300</groupId>
+             <artifactId>minimum-marshaller</artifactId>
+             <version>${version.minimum-marshaller}</version>
           </dependency>
       </dependencies>
    </dependencyManagement>

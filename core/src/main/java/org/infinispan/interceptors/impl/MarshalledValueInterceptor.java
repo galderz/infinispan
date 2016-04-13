@@ -15,7 +15,7 @@ import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commands.write.PutMapCommand;
 import org.infinispan.commands.write.RemoveCommand;
 import org.infinispan.commands.write.ReplaceCommand;
-import org.infinispan.commons.marshall.StreamingMarshaller;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.util.CloseableIterator;
 import org.infinispan.commons.util.CloseableIteratorMapper;
 import org.infinispan.commons.util.CloseableSpliterator;
@@ -62,7 +62,7 @@ import static org.infinispan.marshall.core.MarshalledValue.isTypeExcluded;
  * @since 9.0
  */
 public class MarshalledValueInterceptor<K, V> extends DDAsyncInterceptor {
-   private StreamingMarshaller marshaller;
+   private Marshaller marshaller;
    private boolean wrapKeys = true;
    private boolean wrapValues = true;
    private InternalEntryFactory entryFactory;
@@ -83,7 +83,7 @@ public class MarshalledValueInterceptor<K, V> extends DDAsyncInterceptor {
    };
 
    @Inject
-   protected void inject(@ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller,
+   protected void inject(@ComponentName(CACHE_MARSHALLER) Marshaller marshaller,
                          InternalEntryFactory entryFactory, Cache<K, V> cache) {
       this.marshaller = marshaller;
       this.entryFactory = entryFactory;

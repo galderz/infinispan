@@ -9,18 +9,19 @@ import org.infinispan.atomic.impl.RemoveOperation;
 import org.infinispan.commands.CommandInvocationId;
 import org.infinispan.commands.RemoteCommandsFactory;
 import org.infinispan.commands.write.ValueMatcher;
-import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.hash.MurmurHash3;
+import org.infinispan.commons.io.ByteBuffer;
 import org.infinispan.commons.io.ByteBufferImpl;
-import org.infinispan.commons.io.UnsignedNumeric;
+import org.infinispan.commons.marshall.AbstractMarshaller;
 import org.infinispan.commons.marshall.AdvancedExternalizer;
+import org.infinispan.commons.marshall.DelegatingObjectInput;
+import org.infinispan.commons.marshall.DelegatingObjectOutput;
 import org.infinispan.commons.marshall.Externalizer;
-import org.infinispan.commons.marshall.LambdaExternalizer;
 import org.infinispan.commons.marshall.MarshallableFunctionExternalizers;
+import org.infinispan.commons.marshall.SerializeWith;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.ImmutableListCopy;
 import org.infinispan.commons.util.Immutables;
-import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.container.entries.ImmortalCacheEntry;
 import org.infinispan.container.entries.ImmortalCacheValue;
 import org.infinispan.container.entries.MortalCacheEntry;
@@ -40,21 +41,11 @@ import org.infinispan.container.entries.metadata.MetadataTransientMortalCacheVal
 import org.infinispan.container.versioning.NumericVersion;
 import org.infinispan.container.versioning.SimpleClusteredVersion;
 import org.infinispan.context.Flag;
-import org.infinispan.distribution.ch.impl.AffinityPartitioner;
-import org.infinispan.distribution.ch.impl.DefaultConsistentHash;
-import org.infinispan.distribution.ch.impl.DefaultConsistentHashFactory;
-import org.infinispan.distribution.ch.impl.HashFunctionPartitioner;
-import org.infinispan.distribution.ch.impl.ReplicatedConsistentHash;
-import org.infinispan.distribution.ch.impl.ReplicatedConsistentHashFactory;
-import org.infinispan.distribution.ch.impl.SyncConsistentHashFactory;
-import org.infinispan.distribution.ch.impl.SyncReplicatedConsistentHashFactory;
-import org.infinispan.distribution.ch.impl.TopologyAwareConsistentHashFactory;
-import org.infinispan.distribution.ch.impl.TopologyAwareSyncConsistentHashFactory;
+import org.infinispan.distribution.ch.impl.*;
 import org.infinispan.factories.GlobalComponentRegistry;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
-import org.infinispan.factories.annotations.Stop;
 import org.infinispan.factories.scopes.Scope;
 import org.infinispan.factories.scopes.Scopes;
 import org.infinispan.filter.AcceptAllKeyValueFilter;
@@ -67,10 +58,10 @@ import org.infinispan.filter.KeyValueFilterAsKeyFilter;
 import org.infinispan.filter.NullValueConverter;
 import org.infinispan.functional.impl.EntryViews;
 import org.infinispan.functional.impl.MetaParams;
+import org.infinispan.functional.impl.MetaParamsInternalMetadata;
 import org.infinispan.marshall.exts.*;
 import org.infinispan.metadata.EmbeddedMetadata;
 import org.infinispan.metadata.impl.InternalMetadataImpl;
-import org.infinispan.functional.impl.MetaParamsInternalMetadata;
 import org.infinispan.notifications.cachelistener.cluster.ClusterEvent;
 import org.infinispan.notifications.cachelistener.cluster.ClusterEventCallable;
 import org.infinispan.notifications.cachelistener.cluster.ClusterListenerRemoveCallable;
@@ -107,14 +98,20 @@ import org.infinispan.transaction.xa.recovery.RecoveryAwareDldGlobalTransaction;
 import org.infinispan.transaction.xa.recovery.RecoveryAwareGlobalTransaction;
 import org.infinispan.transaction.xa.recovery.SerializableXid;
 import org.infinispan.util.KeyValuePair;
-import org.infinispan.util.logging.Log;
-import org.infinispan.util.logging.LogFactory;
 import org.infinispan.xsite.statetransfer.XSiteState;
-import org.jboss.marshalling.Marshaller;
-import org.jboss.marshalling.ObjectTable;
-import org.jboss.marshalling.Unmarshaller;
+import org.mk300.marshal.minimum.MinimumMarshaller;
+import org.mk300.marshal.minimum.io.OInput;
+import org.mk300.marshal.minimum.io.OInputImpl;
+import org.mk300.marshal.minimum.io.OOutput;
+import org.mk300.marshal.minimum.io.OOutputImpl;
 
+import java.io.ByteArrayInputStream;
+import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -122,39 +119,14 @@ import java.util.WeakHashMap;
 
 import static org.infinispan.factories.KnownComponentNames.GLOBAL_MARSHALLER;
 
-/**
- * The externalizer table maintains information necessary to be able to map a particular type with the corresponding
- * {@link org.infinispan.commons.marshall.AdvancedExternalizer} implementation that it marshall, and it also keeps information of which {@link org.infinispan.commons.marshall.AdvancedExternalizer}
- * should be used to read data from a buffer given a particular {@link org.infinispan.commons.marshall.AdvancedExternalizer} identifier.
- *
- * These tables govern how either internal Infinispan classes, or user defined classes, are marshalled to a given
- * output, or how these are unmarshalled from a given input.
- *
- * @author Galder Zamarreño
- * @since 5.0
- */
 @Scope(Scopes.GLOBAL)
-public class ExternalizerTable implements ObjectTable {
-   private static final Log log = LogFactory.getLog(ExternalizerTable.class);
-   private static final boolean trace = log.isTraceEnabled();
+public class MinMarshaller extends AbstractMarshaller implements StreamingMarshaller {
 
-   /**
-    * Contains mapping of classes to their corresponding externalizer classes via ExternalizerAdapter instances.
-    */
-   private final Map<Class<?>, ExternalizerAdapter> writers = new WeakHashMap<Class<?>, ExternalizerAdapter>();
+   private static final int ID_MIN_MAR = 255;
+   private static final int ID_ANN_EXT = 254;
 
-   /**
-    * Contains mapping of ids to their corresponding AdvancedExternalizer classes via ExternalizerAdapter instances.
-    * This maps contains mappings for both internal and foreign or user defined externalizers.
-    *
-    * Internal ids are only allowed to be unsigned bytes (0 to 254). 255 is an special id that signals the
-    * arrival of a foreign externalizer id. Foreign externalizers are only allowed to use positive ids that between 0
-    * and Integer.MAX_INT. To avoid clashes between foreign and internal ids, foreign ids are transformed into negative
-    * values to be stored in this map. This way, we avoid the need of a second map to hold user defined externalizers.
-    */
-   private final Map<Integer, ExternalizerAdapter> readers = new HashMap<Integer, ExternalizerAdapter>();
-
-   private volatile boolean started;
+   private final Map<Class<?>, AdvancedExternalizer<Object>> writers = new WeakHashMap<>();
+   private final Map<Integer, AdvancedExternalizer<Object>> readers = new HashMap<>();
 
    private RemoteCommandsFactory cmdFactory;
    private GlobalComponentRegistry gcr;
@@ -171,82 +143,6 @@ public class ExternalizerTable implements ObjectTable {
    @Start(priority = 7) // Should start before global marshaller
    public void start() {
       loadInternalMarshallables();
-      loadForeignMarshallables(gcr.getGlobalConfiguration());
-      started = true;
-      if (trace) {
-         log.tracef("Constant object table was started and contains these externalizer readers: %s", readers);
-         log.tracef("The externalizer writers collection contains: %s", writers);
-      }
-   }
-
-   @Stop(priority = 13) // Stop after global marshaller
-   public void stop() {
-      started = false;
-      writers.clear();
-      readers.clear();
-      log.trace("Externalizer reader and writer maps have been cleared and constant object table was stopped");
-   }
-
-   @Override
-   public Writer getObjectWriter(Object o) throws IOException {
-      Class<?> clazz = o.getClass();
-      if (!started) {
-         throw log.externalizerTableStopped(clazz.getName());
-      }
-      Writer writer = writers.get(clazz);
-      return writer;
-   }
-
-   @Override
-   public Object readObject(Unmarshaller input) throws IOException, ClassNotFoundException {
-      int readerIndex = input.readUnsignedByte();
-      int foreignId = -1;
-      if (readerIndex == Ids.MAX_ID) {
-         // User defined externalizer
-         foreignId = UnsignedNumeric.readUnsignedInt(input);
-         readerIndex = generateForeignReaderIndex(foreignId);
-      }
-
-      ExternalizerAdapter adapter = readers.get(readerIndex);
-      if (adapter == null) {
-         if (!started) {
-            log.tracef("Either the marshaller has stopped or hasn't started. Read externalizers are not properly populated: %s", readers);
-
-            if (Thread.currentThread().isInterrupted()) {
-               throw log.pushReadInterruptionDueToCacheManagerShutdown(readerIndex, new InterruptedException());
-            } else {
-               throw log.cannotResolveExternalizerReader(gcr.getStatus(), readerIndex);
-            }
-         } else {
-            if (trace) {
-               log.tracef("Unknown type. Input stream has %s to read", input.available());
-               log.tracef("Check contents of read externalizers: %s", readers);
-            }
-
-            if (foreignId > 0)
-               throw log.missingForeignExternalizer(foreignId);
-
-            throw log.unknownExternalizerReaderIndex(readerIndex);
-         }
-      }
-
-      return adapter.readObject(input);
-   }
-
-   public Externalizer getExternalizer(Object o) {
-      ExternalizerAdapter adapter = writers.get(o.getClass());
-      if (adapter != null && adapter.externalizer instanceof LambdaExternalizer)
-         return adapter.externalizer;
-
-      return null;
-   }
-
-   boolean isMarshallableCandidate(Object o) {
-      return writers.containsKey(o.getClass());
-   }
-
-   int getExternalizerId(Object o) {
-      return writers.get(o.getClass()).getExternalizerId();
    }
 
    private void loadInternalMarshallables() {
@@ -384,150 +280,396 @@ public class ExternalizerTable implements ObjectTable {
       addInternalExternalizer(new MarshallableFunctionExternalizers.LambdaWithMetasExternalizer());
       addInternalExternalizer(new MarshallableFunctionExternalizers.SetValueIfEqualsReturnBooleanExternalizer());
       addInternalExternalizer(new PersistentUUID.Externalizer());
-
-      addInternalExternalizer(new Immutables.ImmutableEntryExternalizer());
    }
 
-   void addInternalExternalizer(AdvancedExternalizer<?> ext) {
-      int id = checkInternalIdLimit(ext.getId(), ext);
-      updateExtReadersWritersWithTypes(new ExternalizerAdapter(id, ext));
+   <T> void addInternalExternalizer(AdvancedExternalizer<T> ext) {
+      Set<Class<? extends T>> typeClasses = ext.getTypeClasses();
+      for (Class<? extends T> typeClass : typeClasses) {
+         writers.put(typeClass, (AdvancedExternalizer<Object>) ext);
+         readers.put(ext.getId(), (AdvancedExternalizer<Object>) ext);
+      }
    }
 
-   private void updateExtReadersWritersWithTypes(ExternalizerAdapter adapter) {
-      updateExtReadersWritersWithTypes(adapter, adapter.id);
-   }
-
-   private void updateExtReadersWritersWithTypes(ExternalizerAdapter adapter, int readerIndex) {
-      Set<Class<?>> typeClasses = adapter.externalizer.getTypeClasses();
-      if (typeClasses.size() > 0) {
-         for (Class<?> typeClass : typeClasses)
-            updateExtReadersWriters(adapter, typeClass, readerIndex);
+   @Override
+   protected ByteBuffer objectToBuffer(Object o, int estimatedSize) throws IOException, InterruptedException {
+      if (o != null) {
+         Class<?> type = o.getClass();
+         AdvancedExternalizer<Object> ext = writers.get(type);
+         if (ext != null) {
+            OOutputImpl oo = new OOutputImpl(estimatedSize);
+            oo.write(ext.getId());
+            ext.writeObject(new MinObjectOutput(oo, writers), o);
+            byte[] bytes = oo.toBytes();
+            return new ByteBufferImpl(bytes, 0, bytes.length);
+         } else {
+            SerializeWith ann = type.getAnnotation(SerializeWith.class);
+            if (ann != null) {
+               Externalizer<Object> annExt = createExternalizerFromAnnotation(ann);
+               OOutputImpl oo = new OOutputImpl(estimatedSize);
+               oo.write(ID_ANN_EXT);
+               oo.writeObject(annExt);
+               annExt.writeObject(new MinObjectOutput(oo, writers), o);
+               byte[] bytes = oo.toBytes();
+               return new ByteBufferImpl(bytes, 0, bytes.length);
+            } else {
+               OOutputImpl oo = new OOutputImpl(estimatedSize);
+               oo.write(ID_MIN_MAR);
+               oo.writeObject(o);
+               byte[] bytes = oo.toBytes();
+               return new ByteBufferImpl(bytes, 0, bytes.length);
+            }
+         }
       } else {
-         throw log.advanceExternalizerTypeClassesUndefined(adapter.externalizer.getClass().getName());
+         OOutputImpl oo = new OOutputImpl(1 + 2);
+         oo.write(ID_MIN_MAR);
+         oo.writeObject(null);
+         byte[] bytes = oo.toBytes();
+         return new ByteBufferImpl(bytes, 0, bytes.length);
       }
    }
 
-   private void loadForeignMarshallables(GlobalConfiguration globalCfg) {
-      log.trace("Loading user defined externalizers");
-      for (Map.Entry<Integer, AdvancedExternalizer<?>> config : globalCfg.serialization().advancedExternalizers().entrySet()) {
-         AdvancedExternalizer<?> ext = config.getValue();
-
-         // If no XML or programmatic config, id in annotation is used
-         // as long as it's not default one (meaning, user did not set it).
-         // If XML or programmatic config in use ignore @Marshalls annotation and use value in config.
-         Integer id = ext.getId();
-         if (config.getKey() == null && id == null)
-            throw new CacheConfigurationException(String.format(
-                  "No advanced externalizer identifier set for externalizer %s",
-                  ext.getClass().getName()));
-         else if (config.getKey() != null)
-            id = config.getKey();
-
-         id = checkForeignIdLimit(id, ext);
-         updateExtReadersWritersWithTypes(new ForeignExternalizerAdapter(id, ext), generateForeignReaderIndex(id));
+   @Override
+   public Object objectFromByteBuffer(byte[] buf, int offset, int length) throws IOException, ClassNotFoundException {
+      ByteArrayInputStream is = new ByteArrayInputStream(buf, offset, length);
+      int extType = is.read();
+      AdvancedExternalizer<Object> ext = readers.get(extType);
+      if (ext != null) {
+         byte[] bytes = new byte[length - 1];
+         System.arraycopy(buf, offset + 1, bytes, 0, length - 1);
+         OInput oi = new OInputImpl(bytes);
+         return ext.readObject(new MinObjectInput(oi, readers));
+      } else {
+         byte[] bytes = new byte[length - 1];
+         System.arraycopy(buf, offset + 1, bytes, 0, length - 1);
+         OInput oi = new OInputImpl(bytes);
+         return oi.readObject();
       }
    }
 
-   private void updateExtReadersWriters(ExternalizerAdapter adapter, Class<?> typeClass, int readerIndex) {
-      writers.put(typeClass, adapter);
-      ExternalizerAdapter prevReader = readers.put(readerIndex, adapter);
-      // Several externalizers might share same id (i.e. HashMap and TreeMap use MapExternalizer)
-      // but a duplicate is only considered when that particular index has already been entered
-      // in the readers map and the externalizers are different (they're from different classes)
-      if (prevReader != null && !prevReader.equals(adapter))
-         throw log.duplicateExternalizerIdFound(
-               adapter.id, typeClass, prevReader.externalizer.getClass().getName(), readerIndex);
-
-      if (trace)
-         log.tracef("Loaded externalizer %s for %s with id %s and reader index %s",
-                   adapter.externalizer.getClass().getName(), typeClass, adapter.id, readerIndex);
-
+   @Override
+   public boolean isMarshallable(Object o) throws Exception {
+      return MinimumMarshaller.isDefined(o.getClass());
    }
 
-   private int checkInternalIdLimit(int id, AdvancedExternalizer<?> ext) {
-      if (id >= Ids.MAX_ID)
-         throw log.internalExternalizerIdLimitExceeded(ext, id, Ids.MAX_ID);
-
-      return id;
+   @Override
+   public ObjectOutput startObjectOutput(OutputStream os, boolean isReentrant, int estimatedSize) throws IOException {
+      return ((DelegatingObjectOutput) os).objectOutput;
+//      return new MinObjectOutput(new OOutputImpl(estimatedSize), writers);
    }
 
-   private int checkForeignIdLimit(int id, AdvancedExternalizer<?> ext) {
-      if (id < 0)
-         throw log.foreignExternalizerUsingNegativeId(ext, id);
-
-      return id;
-   }
-
-   private int generateForeignReaderIndex(int foreignId) {
-      return 0x80000000 | foreignId;
-   }
-
-   static class ExternalizerAdapter implements Writer {
-      final int id;
-      final AdvancedExternalizer<Object> externalizer;
-
-      ExternalizerAdapter(int id, AdvancedExternalizer<?> externalizer) {
-         this.id = id;
-         this.externalizer = (AdvancedExternalizer<Object>) externalizer;
+   @Override
+   public void finishObjectOutput(ObjectOutput oo) {
+      try {
+         oo.close();
+      } catch (IOException e) {
+         throw new RuntimeException(e);
       }
+   }
 
-      public Object readObject(Unmarshaller input) throws IOException, ClassNotFoundException {
-         return externalizer.readObject(input);
+   @Override
+   public void objectToObjectStream(Object obj, ObjectOutput out) throws IOException {
+      // TODO: Customise this generated block
+   }
+
+   @Override
+   public ObjectInput startObjectInput(InputStream is, boolean isReentrant) throws IOException {
+      return ((DelegatingObjectInput) is).objectInput;
+      //return new MinObjectInput(new OInputImpl(inputStreamToBytes(is)), readers);
+   }
+
+//   private static byte[] inputStreamToBytes(InputStream in) throws IOException {
+//      int ch1 = in.read();
+//      int ch2 = in.read();
+//      int ch3 = in.read();
+//      int ch4 = in.read();
+//      if ((ch1 | ch2 | ch3 | ch4) < 0)
+//         throw new EOFException();
+//      int len = ((ch1 << 24) + (ch2 << 16) + (ch3 << 8) + (ch4 << 0));
+//      byte[] buf = new byte[len];
+//      int n = 0;
+//      while (n < len) {
+//         int count = in.read(buf, 0 + n, len - n);
+//         if (count < 0)
+//            throw new EOFException();
+//         n += count;
+//
+//      }
+//      return buf;
+//   }
+
+   @Override
+   public void finishObjectInput(ObjectInput oi) {
+      // TODO: Customise this generated block
+   }
+
+   @Override
+   public Object objectFromObjectStream(ObjectInput in) throws IOException, ClassNotFoundException, InterruptedException {
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override
+   public void stop() {
+      // TODO: Customise this generated block
+   }
+
+   private static Externalizer<Object> createExternalizerFromAnnotation(SerializeWith ann) {
+      try {
+         return (Externalizer<Object>) ann.value().newInstance();
+      } catch (Exception e) {
+         throw new RuntimeException(e);
+      }
+   }
+
+   static final class MinObjectOutput implements ObjectOutput {
+
+      final OOutput oo;
+      final Map<Class<?>, AdvancedExternalizer<Object>> writers;
+
+      MinObjectOutput(OOutput oo, Map<Class<?>, AdvancedExternalizer<Object>> writers) {
+         this.oo = oo;
+         this.writers = writers;
       }
 
       @Override
-      public void writeObject(Marshaller output, Object object) throws IOException {
-         output.write(id);
-         externalizer.writeObject(output, object);
-      }
-
-      int getExternalizerId() {
-         return id;
+      public void writeObject(Object obj) throws IOException {
+         if (obj != null) {
+            Class<?> type = obj.getClass();
+            AdvancedExternalizer<Object> ext = writers.get(type);
+            if (ext != null) {
+               oo.write(ext.getId());
+               ext.writeObject(this, obj);
+            } else {
+               SerializeWith ann = type.getAnnotation(SerializeWith.class);
+               if (ann != null) {
+                  Externalizer<Object> annExt = createExternalizerFromAnnotation(ann);
+                  oo.write(ID_ANN_EXT);
+                  oo.writeObject(annExt);
+                  annExt.writeObject(this, obj);
+               } else {
+                  oo.write(ID_MIN_MAR);
+                  oo.writeObject(obj);
+               }
+            }
+         } else {
+            oo.write(ID_MIN_MAR);
+            oo.writeObject(obj);
+         }
       }
 
       @Override
-      public String toString() {
-         // Each adapter is represented by the externalizer it delegates to, so just return the class name
-         return externalizer.getClass().getName();
+      public void write(int b) throws IOException {
+         oo.write(b);
       }
 
       @Override
-      public boolean equals(Object o) {
-         if (this == o) return true;
-         if (o == null || getClass() != o.getClass()) return false;
-         ExternalizerAdapter that = (ExternalizerAdapter) o;
-         if (id != that.id) return false;
-         if (externalizer != null ? !externalizer.getClass().equals(that.externalizer.getClass()) : that.externalizer != null) return false;
-         return true;
+      public void write(byte[] b) throws IOException {
+         oo.write(b);
       }
 
       @Override
-      public int hashCode() {
-         int result = id;
-         result = 31 * result + (externalizer.getClass() != null ? externalizer.getClass().hashCode() : 0);
-         return result;
+      public void write(byte[] b, int off, int len) throws IOException {
+         oo.write(b, off, len);
+      }
+
+      @Override
+      public void writeBoolean(boolean v) throws IOException {
+         oo.writeBoolean(v);
+      }
+
+      @Override
+      public void writeByte(int v) throws IOException {
+         oo.writeByte(v);
+      }
+
+      @Override
+      public void writeShort(int v) throws IOException {
+         oo.writeShort((short) v);
+      }
+
+      @Override
+      public void writeChar(int v) throws IOException {
+         oo.writeChar((char) v);
+      }
+
+      @Override
+      public void writeInt(int v) throws IOException {
+         oo.writeInt(v);
+      }
+
+      @Override
+      public void writeLong(long v) throws IOException {
+         oo.writeLong(v);
+      }
+
+      @Override
+      public void writeFloat(float v) throws IOException {
+         oo.writeFloat(v);
+      }
+
+      @Override
+      public void writeDouble(double v) throws IOException {
+         oo.writeDouble(v);
+      }
+
+      @Override
+      public void writeBytes(String s) throws IOException {
+         oo.writeString(s);
+      }
+
+      @Override
+      public void writeChars(String s) throws IOException {
+         writeBytes(s);
+      }
+
+      @Override
+      public void writeUTF(String s) throws IOException {
+         oo.writeUTF(s);
+      }
+
+      @Override
+      public void flush() throws IOException {
+         oo.flush();
+      }
+
+      @Override
+      public void close() throws IOException {
+         oo.close();
       }
    }
 
-   static class ForeignExternalizerAdapter extends ExternalizerAdapter {
-      final int foreignId;
+   static final class MinObjectInput implements ObjectInput {
 
-      ForeignExternalizerAdapter(int foreignId, AdvancedExternalizer<?> externalizer) {
-         super(Ids.MAX_ID, externalizer);
-         this.foreignId = foreignId;
+      final OInput oi;
+      final Map<Integer, AdvancedExternalizer<Object>> readers;
+
+      MinObjectInput(OInput oi, Map<Integer, AdvancedExternalizer<Object>> readers) {
+         this.oi = oi;
+         this.readers = readers;
       }
 
       @Override
-      int getExternalizerId() {
-         return foreignId;
+
+      public Object readObject() throws ClassNotFoundException, IOException {
+         byte signedByte = oi.readByte();
+         int unsignedByte = signedByte & 0xff;
+         if (unsignedByte == ID_ANN_EXT) {
+            Externalizer<Object> annExt = (Externalizer<Object>) oi.readObject();
+            return annExt.readObject(this);
+         } else {
+            AdvancedExternalizer<Object> ext = readers.get(unsignedByte);
+            if (ext != null) {
+               return ext.readObject(this);
+            }
+            return oi.readObject();
+         }
       }
 
       @Override
-      public void writeObject(Marshaller output, Object object) throws IOException {
-         output.write(id);
-         // Write as an unsigned, variable length, integer to safe space
-         UnsignedNumeric.writeUnsignedInt(output, foreignId);
-         externalizer.writeObject(output, object);
+      public int read() throws IOException {
+         return oi.readByte();
+      }
+
+      @Override
+      public int read(byte[] b) throws IOException {
+         return 0;
+      }
+
+      @Override
+      public int read(byte[] b, int off, int len) throws IOException {
+         return 0;  // TODO: Customise this generated block
+      }
+
+      @Override
+      public long skip(long n) throws IOException {
+         oi.skip((int) n);
+         return n;
+      }
+
+      @Override
+      public int available() throws IOException {
+         return 0;  // TODO: Customise this generated block
+      }
+
+      @Override
+      public void close() throws IOException {
+         // TODO: Customise this generated block
+      }
+
+      @Override
+      public void readFully(byte[] b) throws IOException {
+         oi.readFully(b);
+      }
+
+      @Override
+      public void readFully(byte[] b, int off, int len) throws IOException {
+         oi.readFully(b);
+      }
+
+      @Override
+      public int skipBytes(int n) throws IOException {
+         oi.skip(n);
+         return n;
+      }
+
+      @Override
+      public boolean readBoolean() throws IOException {
+         return oi.readBoolean();
+      }
+
+      @Override
+      public byte readByte() throws IOException {
+         return oi.readByte();
+      }
+
+      @Override
+      public int readUnsignedByte() throws IOException {
+         return oi.readByte();
+      }
+
+      @Override
+      public short readShort() throws IOException {
+         return oi.readShort();
+      }
+
+      @Override
+      public int readUnsignedShort() throws IOException {
+         return oi.readShort();
+      }
+
+      @Override
+      public char readChar() throws IOException {
+         return oi.readChar();
+      }
+
+      @Override
+      public int readInt() throws IOException {
+         return oi.readInt();
+      }
+
+      @Override
+      public long readLong() throws IOException {
+         return oi.readLong();
+      }
+
+      @Override
+      public float readFloat() throws IOException {
+         return oi.readFloat();
+      }
+
+      @Override
+      public double readDouble() throws IOException {
+         return oi.readDouble();
+      }
+
+      @Override
+      public String readLine() throws IOException {
+         return null;  // TODO: Customise this generated block
+      }
+
+      @Override
+      public String readUTF() throws IOException {
+         return oi.readUTF();
       }
    }
+
 }

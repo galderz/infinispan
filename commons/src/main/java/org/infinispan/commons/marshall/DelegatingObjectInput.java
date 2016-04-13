@@ -16,7 +16,7 @@ import java.io.OutputStream;
  */
 public class DelegatingObjectInput extends InputStream implements ObjectInput {
 
-   protected final ObjectInput objectInput;
+   public final ObjectInput objectInput;
 
    public DelegatingObjectInput(ObjectInput objectInput) {
       this.objectInput = objectInput;

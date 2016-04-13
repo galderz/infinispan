@@ -27,6 +27,7 @@ import org.infinispan.commands.write.ReplaceCommand;
 import org.infinispan.commands.write.ValueMatcher;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.api.BasicCacheContainer;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.EnumUtil;
 import org.infinispan.commons.util.InfinispanCollections;
@@ -136,7 +137,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    protected ComponentRegistry componentRegistry;
    protected TransactionManager transactionManager;
    protected RpcManager rpcManager;
-   protected StreamingMarshaller marshaller;
+   protected Marshaller marshaller;
    protected Metadata defaultMetadata;
    private final String name;
    private EvictionManager evictionManager;
@@ -175,7 +176,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
                                   TransactionManager transactionManager,
                                   BatchContainer batchContainer,
                                   RpcManager rpcManager, DataContainer dataContainer,
-                                  @ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller,
+                                  @ComponentName(CACHE_MARSHALLER) Marshaller marshaller,
                                   DistributionManager distributionManager,
                                   EmbeddedCacheManager cacheManager,
                                   @ComponentName(ASYNC_OPERATIONS_EXECUTOR) ExecutorService asyncExecutor,

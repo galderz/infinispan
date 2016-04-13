@@ -18,7 +18,7 @@ import org.jboss.marshalling.river.RiverUnmarshaller;
  */
 public class ExtendedRiverUnmarshaller extends RiverUnmarshaller {
 
-   private StreamingMarshaller infinispanMarshaller;
+   private org.infinispan.commons.marshall.Marshaller infinispanMarshaller;
    private RiverCloseListener listener;
 
    protected ExtendedRiverUnmarshaller(RiverMarshallerFactory factory,
@@ -26,7 +26,7 @@ public class ExtendedRiverUnmarshaller extends RiverUnmarshaller {
       super(factory, registry, cfg);
    }
 
-   public StreamingMarshaller getInfinispanMarshaller() {
+   public org.infinispan.commons.marshall.Marshaller getInfinispanMarshaller() {
       return infinispanMarshaller;
    }
 

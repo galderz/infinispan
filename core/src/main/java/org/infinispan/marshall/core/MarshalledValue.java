@@ -1,6 +1,8 @@
 package org.infinispan.marshall.core;
 
 import org.infinispan.commands.ReplicableCommand;
+import org.infinispan.commons.io.ByteBuffer;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 import org.infinispan.io.ExpandableMarshalledValueByteStream;
 import org.infinispan.io.ImmutableMarshalledValueByteStream;
@@ -52,7 +54,7 @@ public final class MarshalledValue implements Externalizable {
    private int serialisedSize; //size of serialized representation
    private int cachedHashCode;
    // A marshaller is needed at construction time to handle equals/hashCode impls
-   private transient StreamingMarshaller marshaller;
+   private transient Marshaller marshaller;
 
    public MarshalledValue() {
       // For JDK serialization
@@ -67,14 +69,14 @@ public final class MarshalledValue implements Externalizable {
     * @param hashCode The hashCode of the object when it was deserialized
     * @param marshaller The marshaller to use to deserialize the object
     */
-   public MarshalledValue(byte[] bytes, int hashCode, StreamingMarshaller marshaller) {
+   public MarshalledValue(byte[] bytes, int hashCode, Marshaller marshaller) {
       this.marshaller = marshaller;
       this.raw = new ImmutableMarshalledValueByteStream(bytes);
       this.cachedHashCode = hashCode;
       this.serialisedSize = bytes.length;
    }
 
-   public MarshalledValue(Object instance, StreamingMarshaller marshaller) {
+   public MarshalledValue(Object instance, Marshaller marshaller) {
       this.marshaller = marshaller;
       this.raw = serialize(instance);
       this.serialisedSize = raw.size();
@@ -89,12 +91,14 @@ public final class MarshalledValue implements Externalizable {
          // Do NOT set instance to null over here, since it may be used elsewhere (e.g., in a cache listener).
          // this will be compacted by the MarshalledValueInterceptor when the call returns.
          MarshalledValueByteStream baos = new ExpandableMarshalledValueByteStream(this.serialisedSize);
-         ObjectOutput out = marshaller.startObjectOutput(baos, true, this.serialisedSize);
-         try {
-            marshaller.objectToObjectStream(instance, out);
-         } finally {
-            marshaller.finishObjectOutput(out);
-         }
+         ByteBuffer byteBuffer = marshaller.objectToBuffer(instance);
+         baos.write(byteBuffer.getBuf());
+//         ObjectOutput out = marshaller.startObjectOutput(baos, true, this.serialisedSize);
+//         try {
+//            marshaller.objectToObjectStream(instance, out);
+//         } finally {
+//            marshaller.finishObjectOutput(out);
+//         }
          return baos;
       } catch (Exception e) {
          throw new CacheException("Unable to marshall value " + instance, e);
@@ -122,7 +126,7 @@ public final class MarshalledValue implements Externalizable {
       return deserialize();
    }
 
-   public StreamingMarshaller getMarshaller() {
+   public Marshaller getMarshaller() {
       return marshaller;
    }
 
@@ -192,9 +196,9 @@ public final class MarshalledValue implements Externalizable {
    }
 
    public static class Externalizer extends AbstractExternalizer<MarshalledValue> {
-      private final StreamingMarshaller globalMarshaller;
+      private final org.infinispan.commons.marshall.Marshaller globalMarshaller;
 
-      public Externalizer(StreamingMarshaller globalMarshaller) {
+      public Externalizer(org.infinispan.commons.marshall.Marshaller globalMarshaller) {
          this.globalMarshaller = globalMarshaller;
       }
 
@@ -216,9 +220,9 @@ public final class MarshalledValue implements Externalizable {
          int hc = input.readInt();
 
          // A better way of sending down context information is needed in the future
-         StreamingMarshaller marshaller;
+         org.infinispan.commons.marshall.Marshaller marshaller;
          if (input instanceof ExtendedRiverUnmarshaller) {
-            StreamingMarshaller ispnMarshaller =
+            org.infinispan.commons.marshall.Marshaller ispnMarshaller =
                   ((ExtendedRiverUnmarshaller) input).getInfinispanMarshaller();
             if (ispnMarshaller != null)
                marshaller = ispnMarshaller;

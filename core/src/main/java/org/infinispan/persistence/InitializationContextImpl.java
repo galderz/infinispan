@@ -2,6 +2,7 @@ package org.infinispan.persistence;
 
 import org.infinispan.Cache;
 import org.infinispan.commons.io.ByteBufferFactory;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.configuration.cache.StoreConfiguration;
 import org.infinispan.marshall.core.MarshalledEntryFactory;
@@ -16,13 +17,13 @@ public class InitializationContextImpl implements InitializationContext {
 
    private final StoreConfiguration configuration;
    private final Cache cache;
-   private final StreamingMarshaller marshaller;
+   private final Marshaller marshaller;
    private final TimeService timeService;
    private final ByteBufferFactory byteBufferFactory;
    private final MarshalledEntryFactory marshalledEntryFactory;
 
 
-   public InitializationContextImpl(StoreConfiguration configuration, Cache cache, StreamingMarshaller marshaller,
+   public InitializationContextImpl(StoreConfiguration configuration, Cache cache, Marshaller marshaller,
                                     TimeService timeService, ByteBufferFactory byteBufferFactory, MarshalledEntryFactory mef) {
       this.configuration = configuration;
       this.cache = cache;
@@ -43,7 +44,7 @@ public class InitializationContextImpl implements InitializationContext {
    }
 
    @Override
-   public StreamingMarshaller getMarshaller() {
+   public Marshaller getMarshaller() {
       return marshaller;
    }
 

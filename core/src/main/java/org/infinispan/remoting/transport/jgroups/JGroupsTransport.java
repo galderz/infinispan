@@ -3,6 +3,7 @@ package org.infinispan.remoting.transport.jgroups;
 import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.CacheException;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.CollectionFactory;
 import org.infinispan.commons.util.FileLookup;
@@ -109,7 +110,7 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
    protected boolean connectChannel = true, disconnectChannel = true, closeChannel = true;
    protected CommandAwareRpcDispatcher dispatcher;
    protected TypedProperties props;
-   protected StreamingMarshaller marshaller;
+   protected Marshaller marshaller;
    protected CacheManagerNotifier notifier;
    protected GlobalComponentRegistry gcr;
    protected TimeService timeService;
@@ -176,7 +177,7 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
     * @param gcr           the global component registry
     */
    @Inject
-   public void initialize(@ComponentName(GLOBAL_MARSHALLER) StreamingMarshaller marshaller,
+   public void initialize(@ComponentName(GLOBAL_MARSHALLER) Marshaller marshaller,
                           CacheManagerNotifier notifier, GlobalComponentRegistry gcr,
                           TimeService timeService, InboundInvocationHandler globalHandler,
                           @ComponentName(KnownComponentNames.TIMEOUT_SCHEDULE_EXECUTOR) ScheduledExecutorService timeoutExecutor,

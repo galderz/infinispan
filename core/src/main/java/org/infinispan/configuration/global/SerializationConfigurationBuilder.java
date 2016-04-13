@@ -13,6 +13,8 @@ import org.infinispan.commons.configuration.Builder;
 import org.infinispan.commons.configuration.attributes.AttributeSet;
 import org.infinispan.commons.marshall.AdvancedExternalizer;
 import org.infinispan.commons.marshall.Marshaller;
+import org.infinispan.marshall.core.MinMarshaller;
+import org.infinispan.marshall.core.VersionAwareMarshaller;
 import org.jboss.marshalling.ClassResolver;
 
 /**
@@ -21,6 +23,10 @@ import org.jboss.marshalling.ClassResolver;
 public class SerializationConfigurationBuilder extends AbstractGlobalConfigurationBuilder implements Builder<SerializationConfiguration> {
    private final AttributeSet attributes;
    private Map<Integer, AdvancedExternalizer<?>> advancedExternalizers = new HashMap<>();
+
+   private Marshaller marshaller = new MinMarshaller();
+   private short marshallVersion = Version.getMarshallVersion();
+   private ClassResolver classResolver;
 
    SerializationConfigurationBuilder(GlobalConfigurationBuilder globalConfig) {
       super(globalConfig);

@@ -17,6 +17,7 @@ import org.infinispan.commons.CacheException;
 import org.infinispan.commons.configuration.ConfiguredBy;
 import org.infinispan.commons.equivalence.ByteArrayEquivalence;
 import org.infinispan.commons.equivalence.Equivalence;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.InfinispanCollections;
 import org.infinispan.commons.util.Util;
@@ -52,7 +53,7 @@ public class DummyInMemoryStore implements AdvancedLoadWriteStore, AdvancedCache
    private TimeService timeService;
    Cache cache;
 
-   protected volatile StreamingMarshaller marshaller;
+   protected volatile Marshaller marshaller;
 
    private DummyInMemoryStoreConfiguration configuration;
    private InitializationContext ctx;

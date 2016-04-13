@@ -16,6 +16,7 @@ import org.infinispan.commands.write.ReplaceCommand;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.commons.api.functional.Param;
 import org.infinispan.commons.api.functional.Param.PersistenceMode;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.configuration.cache.PersistenceConfiguration;
 import org.infinispan.container.InternalEntryFactory;
@@ -74,7 +75,7 @@ public class CacheWriterInterceptor extends JmxStatsCommandInterceptor {
    protected PersistenceManager persistenceManager;
    private InternalEntryFactory entryFactory;
    private TransactionManager transactionManager;
-   private StreamingMarshaller marshaller;
+   private Marshaller marshaller;
    protected volatile boolean enabled = true;
 
    private static final Log log = LogFactory.getLog(CacheWriterInterceptor.class);
@@ -85,7 +86,7 @@ public class CacheWriterInterceptor extends JmxStatsCommandInterceptor {
 
    @Inject
    protected void init(PersistenceManager pm, InternalEntryFactory entryFactory, TransactionManager transactionManager,
-                       @ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller) {
+                       @ComponentName(CACHE_MARSHALLER) Marshaller marshaller) {
       this.persistenceManager = pm;
       this.entryFactory = entryFactory;
       this.transactionManager = transactionManager;

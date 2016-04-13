@@ -1,5 +1,6 @@
 package org.infinispan.persistence;
 
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.factories.ComponentRegistry;
@@ -46,7 +47,7 @@ public abstract class ParallelIterationTest extends SingleCacheManagerTest {
    protected AdvancedCacheLoader loader;
    protected AdvancedCacheWriter writer;
    protected Executor executor;
-   protected StreamingMarshaller sm;
+   protected Marshaller sm;
 
    @Override
    protected EmbeddedCacheManager createCacheManager() throws Exception {

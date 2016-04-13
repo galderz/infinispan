@@ -59,9 +59,33 @@
       </dependency>
 
       <dependency>
-         <groupId>org.mockito</groupId>
-         <artifactId>mockito-all</artifactId>
+         <groupId>org.mk300</groupId>
+         <artifactId>minimum-marshaller</artifactId>
+         <version>${version.minimum-marshaller}</version>
+      </dependency>
+
+      <dependency>
+         <groupId>org.jboss.naming</groupId>
+         <artifactId>jnp-client</artifactId>
          <scope>test</scope>
+         <exclusions>
+            <exclusion>
+               <groupId>org.jboss.logging</groupId>
+               <artifactId>jboss-logging-spi</artifactId>
+            </exclusion>
+         </exclusions>
+      </dependency>
+
+      <dependency>
+         <groupId>org.jboss.naming</groupId>
+         <artifactId>jnpserver</artifactId>
+         <scope>test</scope>
+         <exclusions>
+            <exclusion>
+               <groupId>org.jboss.logging</groupId>
+               <artifactId>jboss-logging-spi</artifactId>
+            </exclusion>
+         </exclusions>
       </dependency>
 
       <dependency>

@@ -1,6 +1,7 @@
 package org.infinispan.marshall.core;
 
 import org.infinispan.commons.io.ByteBuffer;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
@@ -14,11 +15,11 @@ import static org.infinispan.factories.KnownComponentNames.CACHE_MARSHALLER;
  */
 public class MarshalledEntryFactoryImpl implements MarshalledEntryFactory {
 
-   private StreamingMarshaller marshaller;
+   private Marshaller marshaller;
 
 
    @Inject
-   public void init(@ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller) {
+   public void init(@ComponentName(CACHE_MARSHALLER) Marshaller marshaller) {
       this.marshaller = marshaller;
    }
 

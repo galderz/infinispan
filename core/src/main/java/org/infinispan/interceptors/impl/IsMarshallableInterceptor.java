@@ -9,6 +9,7 @@ import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commands.write.PutMapCommand;
 import org.infinispan.commands.write.RemoveCommand;
 import org.infinispan.commands.write.ReplaceCommand;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.NotSerializableException;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.context.Flag;
@@ -41,12 +42,12 @@ import static org.infinispan.factories.KnownComponentNames.CACHE_MARSHALLER;
  */
 public class IsMarshallableInterceptor extends DDAsyncInterceptor {
 
-   private StreamingMarshaller marshaller;
+   private Marshaller marshaller;
    private DistributionManager distManager;
    private boolean storeAsBinary;
 
    @Inject
-   protected void injectMarshaller(@ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller,
+   protected void injectMarshaller(@ComponentName(CACHE_MARSHALLER) Marshaller marshaller,
                                    DistributionManager distManager) {
       this.marshaller = marshaller;
       this.distManager = distManager;

@@ -3,6 +3,7 @@ package org.infinispan.persistence.manager;
 import org.infinispan.AdvancedCache;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.io.ByteBufferFactory;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.Util;
 import org.infinispan.configuration.cache.Configuration;
@@ -79,7 +80,7 @@ public class PersistenceManagerImpl implements PersistenceManager {
 
    Configuration configuration;
    AdvancedCache<Object, Object> cache;
-   StreamingMarshaller m;
+   Marshaller m;
 
    TransactionManager transactionManager;
    private TimeService timeService;
@@ -106,7 +107,7 @@ public class PersistenceManagerImpl implements PersistenceManager {
    private volatile boolean clearOnStop;
 
    @Inject
-   public void inject(AdvancedCache<Object, Object> cache, @ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller,
+   public void inject(AdvancedCache<Object, Object> cache, @ComponentName(CACHE_MARSHALLER) Marshaller marshaller,
                       Configuration configuration, TransactionManager transactionManager,
                       TimeService timeService, @ComponentName(PERSISTENCE_EXECUTOR) ExecutorService persistenceExecutor,
                       ByteBufferFactory byteBufferFactory, MarshalledEntryFactory marshalledEntryFactory,
@@ -796,7 +797,7 @@ public class PersistenceManagerImpl implements PersistenceManager {
       return persistenceExecutor;
    }
 
-   public StreamingMarshaller getMarshaller() {
+   public Marshaller getMarshaller() {
       return m;
    }
 

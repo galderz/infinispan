@@ -1,6 +1,7 @@
 package org.infinispan.remoting.transport.jgroups;
 
 import org.infinispan.commons.io.ByteBuffer;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.jgroups.blocks.RpcDispatcher;
 import org.jgroups.util.Buffer;
@@ -12,9 +13,9 @@ import org.jgroups.util.Buffer;
  * @since 4.0
  */
 public class MarshallerAdapter implements RpcDispatcher.Marshaller {
-   StreamingMarshaller m;
+   Marshaller m;
 
-   public MarshallerAdapter(StreamingMarshaller m) {
+   public MarshallerAdapter(Marshaller m) {
       this.m = m;
    }
 

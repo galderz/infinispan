@@ -32,6 +32,7 @@ public class ListExternalizer extends AbstractExternalizer<List> {
    public ListExternalizer() {
       numbers.put(ArrayList.class, ARRAY_LIST);
       numbers.put(getPrivateArrayListClass(), ARRAY_LIST);
+      numbers.put(getUnmodifiableRandomAccessListClass(), ARRAY_LIST);
       numbers.put(LinkedList.class, LINKED_LIST);
    }
 
@@ -63,11 +64,16 @@ public class ListExternalizer extends AbstractExternalizer<List> {
    @Override
    public Set<Class<? extends List>> getTypeClasses() {
       return Util.asSet(ArrayList.class, LinkedList.class,
-            getPrivateArrayListClass());
+            getPrivateArrayListClass(),
+            getUnmodifiableRandomAccessListClass());
    }
 
    private Class<List> getPrivateArrayListClass() {
       return Util.<List>loadClass("java.util.Arrays$ArrayList", List.class.getClassLoader());
+   }
+
+   private Class<List> getUnmodifiableRandomAccessListClass() {
+      return Util.<List>loadClass("java.util.Collections$UnmodifiableRandomAccessList", List.class.getClassLoader());
    }
 
 }
