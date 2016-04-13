@@ -4,7 +4,6 @@ import org.infinispan.factories.annotations.DefaultFactoryFor;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
-import org.infinispan.marshall.core.CacheMarshaller;
 import org.infinispan.marshall.core.GlobalMarshaller;
 import org.infinispan.marshall.core.VersionAwareMarshaller;
 
@@ -28,12 +27,7 @@ public class MarshallerFactory extends NamedComponentFactory implements AutoInst
             configMarshaller instanceof VersionAwareMarshaller;
 
       if (isVersionAwareMarshaller) {
-         if (componentName.equals(GLOBAL_MARSHALLER))
-            comp = new GlobalMarshaller((VersionAwareMarshaller) configMarshaller);
-         else if (componentName.equals(CACHE_MARSHALLER))
-            comp = new CacheMarshaller(new VersionAwareMarshaller());
-         else
-            throw new CacheException("Don't know how to handle type " + componentType);
+         comp = new GlobalMarshaller((VersionAwareMarshaller) configMarshaller);
       } else {
          comp = configMarshaller;
       }

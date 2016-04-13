@@ -16,7 +16,7 @@ public class InvocationContextContainerImpl implements InvocationContextContaine
    // We need to keep the InvocationContext in a thread-local in order to support
    // AdvancedCache.with(ClassLoader). The alternative would be to change the marshalling
    // SPI to accept a ClassLoader parameter.
-   private final ThreadLocal<InvocationContext> ctxHolder = new ThreadLocal<InvocationContext>();
+   private final ThreadLocal<ClassLoader> classloaderHolder = new ThreadLocal<ClassLoader>();
 
    private ClassLoader configuredClassLoader;
 
@@ -34,26 +34,24 @@ public class InvocationContextContainerImpl implements InvocationContextContaine
    }
 
    @Override
-   public InvocationContext getInvocationContext(boolean quiet) {
-      InvocationContext ctx = ctxHolder.get();
-      if (ctx == null && !quiet) throw new IllegalStateException("No InvocationContext associated with current thread!");
-      return ctx;
+   public ClassLoader getClassloaderContext() {
+      return classloaderHolder.get();
    }
 
    @Override
-   public void setThreadLocal(InvocationContext context) {
-      if (isThreadLocalRequired(context)) {
-         ctxHolder.set(context);
+   public void setThreadLocal(ClassLoader classloaderContext) {
+      if (isThreadLocalRequired(classloaderContext)) {
+         classloaderHolder.set(classloaderContext);
       }
    }
 
    @Override
    public void clearThreadLocal() {
-      ctxHolder.remove();
+      classloaderHolder.remove();
    }
 
-   private boolean isThreadLocalRequired(InvocationContext context) {
-      return context.getClassLoader() != null &&
-            context.getClassLoader() != configuredClassLoader;
+   private boolean isThreadLocalRequired(ClassLoader classloaderContext) {
+      return classloaderContext != null &&
+            classloaderContext != configuredClassLoader;
    }
 }

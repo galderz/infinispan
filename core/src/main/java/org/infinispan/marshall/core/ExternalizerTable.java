@@ -121,8 +121,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 
-import static org.infinispan.factories.KnownComponentNames.GLOBAL_MARSHALLER;
-
 /**
  * The externalizer table maintains information necessary to be able to map a particular type with the corresponding
  * {@link org.infinispan.commons.marshall.AdvancedExternalizer} implementation that it marshall, and it also keeps information of which {@link org.infinispan.commons.marshall.AdvancedExternalizer}
@@ -163,7 +161,7 @@ public class ExternalizerTable implements ObjectTable {
 
    @Inject
    public void inject(RemoteCommandsFactory cmdFactory, GlobalComponentRegistry gcr,
-         @ComponentName(GLOBAL_MARSHALLER) StreamingMarshaller globalMarshaller) {
+         StreamingMarshaller globalMarshaller) {
       this.cmdFactory = cmdFactory;
       this.gcr = gcr;
       this.globalMarshaller = globalMarshaller;

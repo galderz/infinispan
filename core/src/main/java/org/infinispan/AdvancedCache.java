@@ -309,7 +309,11 @@ public interface AdvancedCache<K, V> extends Cache<K, V> {
     *
     * @return an {@link AdvancedCache} instance upon which operations can be called
     * with a particular {@link ClassLoader}.
+    * @deprecated The granularity of the classloaders is one per-cache manager,
+    * so it's not possible to store classes belonging to multiple classloaders
+    * in a single cache.
     */
+   @Deprecated
    AdvancedCache<K, V> with(ClassLoader classLoader);
 
    /**

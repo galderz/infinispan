@@ -98,7 +98,7 @@ public class InvocationContextInterceptor extends DDSequentialInterceptor {
 
          LogFactory.pushNDC(componentRegistry.getCacheName(), trace);
 
-         invocationContextContainer.setThreadLocal(ctx);
+         invocationContextContainer.setThreadLocal(ctx.getClassLoader());
          try {
             if (trace) log.tracef("Invoked with command %s and InvocationContext [%s]", command, ctx);
             if (ctx == null) throw new IllegalStateException("Null context not allowed!!");

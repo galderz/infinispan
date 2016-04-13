@@ -1,5 +1,16 @@
 package org.infinispan.interceptors.impl;
 
+import static org.infinispan.marshall.core.MarshalledValue.isTypeExcluded;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.Spliterator;
+
 import org.infinispan.Cache;
 import org.infinispan.CacheSet;
 import org.infinispan.cache.impl.Caches;
@@ -43,9 +54,6 @@ import java.util.Set;
 import java.util.Spliterator;
 import java.util.concurrent.CompletableFuture;
 
-import static org.infinispan.factories.KnownComponentNames.CACHE_MARSHALLER;
-import static org.infinispan.marshall.core.MarshalledValue.isTypeExcluded;
-
 /**
  * Interceptor that handles the wrapping and unwrapping of cached data using {@link
  * MarshalledValue}s. Known "excluded" types are not wrapped/unwrapped, which at this time
@@ -71,7 +79,7 @@ public class MarshalledValueInterceptor<K, V> extends DDSequentialInterceptor {
    private static final boolean trace = log.isTraceEnabled();
 
    @Inject
-   protected void inject(@ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller,
+   protected void inject(StreamingMarshaller marshaller,
                          InternalEntryFactory entryFactory, Cache<K, V> cache) {
       this.marshaller = marshaller;
       this.entryFactory = entryFactory;

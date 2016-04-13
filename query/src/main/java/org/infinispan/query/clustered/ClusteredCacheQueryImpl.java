@@ -52,7 +52,7 @@ public class ClusteredCacheQueryImpl extends CacheQueryImpl {
       this.hSearchQuery = searchFactory.createHSQuery().luceneQuery(luceneQuery)
                .targetedEntities(Arrays.asList(classes));
       this.marshaller = ComponentRegistryUtils.getComponent(cache,
-            StreamingMarshaller.class, KnownComponentNames.CACHE_MARSHALLER);
+            StreamingMarshaller.class);
    }
 
    @Override

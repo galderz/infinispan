@@ -70,12 +70,12 @@ public abstract class LockTestBase extends AbstractInfinispanTest {
 
    protected void assertLocked(Object key) {
       LockTestBaseTL tl = threadLocal.get();
-      LockAssert.assertLocked(key, tl.lockManager, tl.icc);
+      LockAssert.assertLocked(key, tl.lockManager);
    }
 
    protected void assertNotLocked(Object key) {
       LockTestBaseTL tl = threadLocal.get();
-      LockAssert.assertNotLocked(key, tl.icc);
+      LockAssert.assertNotLocked(key, tl.lockManager);
    }
 
    protected void assertNoLocks() {

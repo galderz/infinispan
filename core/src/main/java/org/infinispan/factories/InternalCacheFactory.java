@@ -100,7 +100,7 @@ public class InternalCacheFactory<K, V> extends AbstractNamedCacheComponentFacto
 
          @Override
          public void cacheComponents() {
-            cacheMarshaler = getOrCreateComponent(StreamingMarshaller.class, KnownComponentNames.CACHE_MARSHALLER);
+            cacheMarshaler = getOrCreateComponent(StreamingMarshaller.class);
             getOrCreateComponent(ExpirationManager.class);
          }
       };

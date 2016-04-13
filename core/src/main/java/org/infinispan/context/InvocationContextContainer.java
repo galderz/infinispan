@@ -1,6 +1,5 @@
 package org.infinispan.context;
 
-import org.infinispan.factories.annotations.SurvivesRestarts;
 import org.infinispan.factories.scopes.Scope;
 import org.infinispan.factories.scopes.Scopes;
 
@@ -10,27 +9,21 @@ import org.infinispan.factories.scopes.Scopes;
  * @author Manik Surtani (manik AT infinispan DOT org)
  * @author Mircea.Markus@jboss.com
  * @since 4.0
+ * @deprecated Will be removed once AdvancedCache.with() has been removed
  */
-@Scope(Scopes.NAMED_CACHE)
+@Scope(Scopes.GLOBAL)
+@Deprecated
 public interface InvocationContextContainer {
-   /**
-    * Returns the {@link InvocationContext} that is currently associated with the calling thread. Important:
-    * implementations of this method are most likely expensive, involving thread locals. It is recommended to cache
-    * the result of this method rather than repeating the call.
-    *
-    * @throws IllegalStateException if there is no context associated with the current thread.
-    *
-    * @param quiet
-    */
-   InvocationContext getInvocationContext(boolean quiet);
+
+   ClassLoader getClassloaderContext();
 
    /**
-    * Associate the InvocationContext parameter with the calling thread.
+    * Associate the classloader parameter with the calling thread.
     */
-   void setThreadLocal(InvocationContext context);
+   void setThreadLocal(ClassLoader classloaderContext);
 
    /**
-    * Remove the stored InvocationContext from the calling thread.
+    * Remove the stored classloader from the calling thread.
     *
     * Must be called as each thread exists the interceptor chain.
     */

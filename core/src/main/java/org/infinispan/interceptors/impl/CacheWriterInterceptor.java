@@ -28,7 +28,6 @@ import org.infinispan.container.versioning.EntryVersionsMap;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
-import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.jmx.annotations.MBean;
@@ -53,7 +52,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static org.infinispan.factories.KnownComponentNames.CACHE_MARSHALLER;
 import static org.infinispan.persistence.PersistenceUtil.internalMetadata;
 import static org.infinispan.persistence.manager.PersistenceManager.AccessMode.BOTH;
 import static org.infinispan.persistence.manager.PersistenceManager.AccessMode.PRIVATE;
@@ -88,7 +86,7 @@ public class CacheWriterInterceptor extends JmxStatsCommandInterceptor {
 
    @Inject
    protected void init(PersistenceManager pm, InternalEntryFactory entryFactory, TransactionManager transactionManager,
-                       @ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller) {
+                       StreamingMarshaller marshaller) {
       this.persistenceManager = pm;
       this.entryFactory = entryFactory;
       this.transactionManager = transactionManager;

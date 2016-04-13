@@ -158,12 +158,6 @@ public class ComponentRegistry extends AbstractComponentRegistry {
    }
 
    private boolean isGlobal(String componentClassName, String name, boolean nameIsFQCN) {
-      if (!nameIsFQCN) {
-         for (String s : KnownComponentNames.PER_CACHE_COMPONENT_NAMES) {
-            if (s.equals(name))
-               return false;
-         }
-      }
       return isGlobal(nameIsFQCN ? name : componentClassName);
    }
 
@@ -333,7 +327,7 @@ public class ComponentRegistry extends AbstractComponentRegistry {
     * Invoked last after all services are wired
     */
    public void cacheComponents() {
-      cacheMarshaler = getOrCreateComponent(StreamingMarshaller.class, KnownComponentNames.CACHE_MARSHALLER);
+      cacheMarshaler = getOrCreateComponent(StreamingMarshaller.class);
       stateTransferManager = getOrCreateComponent(StateTransferManager.class);
       responseGenerator = getOrCreateComponent(ResponseGenerator.class);
       commandsFactory = getLocalComponent(CommandsFactory.class);
