@@ -6,6 +6,7 @@ import javassist.CtClass;
 import javassist.CtField;
 import javassist.CtMethod;
 import org.infinispan.commons.marshall.Marshaller;
+import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
 import org.infinispan.manager.EmbeddedCacheManager;
@@ -54,7 +55,7 @@ public class MultiPojoVersionMarshallTest extends AbstractInfinispanTest {
    private static final String HOUSE = BASE + "House";
    private static final String HOUSE_EXT = HOUSE + "Externalizer";
 
-   private AbstractDelegatingMarshaller marshaller;
+   private StreamingMarshaller marshaller;
    private EmbeddedCacheManager cm;
 
    @BeforeTest
@@ -352,7 +353,7 @@ public class MultiPojoVersionMarshallTest extends AbstractInfinispanTest {
       }
    }
 
-   private AbstractDelegatingMarshaller getMarshaller() {
+   private StreamingMarshaller getMarshaller() {
       return marshaller;
    }
 

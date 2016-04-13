@@ -10,6 +10,9 @@ import org.infinispan.commons.io.ExposedByteArrayOutputStream;
 import org.infinispan.commons.marshall.AbstractMarshaller;
 import org.infinispan.commons.marshall.NotSerializableException;
 import org.infinispan.commons.marshall.StreamingMarshaller;
+import org.infinispan.factories.annotations.Inject;
+import org.infinispan.factories.annotations.Start;
+import org.infinispan.factories.annotations.Stop;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -44,27 +47,23 @@ public class VersionAwareMarshaller extends AbstractMarshaller implements Stream
    private Configuration cfg;
    private InvocationContextContainer icc;
 
-   public void inject(Cache cache, Configuration cfg, InvocationContextContainer icc,
+   @Inject
+   public void inject(InvocationContextContainer icc,
          ExternalizerTable extTable, GlobalConfiguration globalCfg) {
-      if (cfg == null) {
-         this.cacheName = null;
-      } else {
-         this.cacheName = cache.getName();
-      }
-
       this.extTable = extTable;
       this.globalCfg = globalCfg;
-      this.cfg = cfg;
       this.icc = icc;
    }
 
    @Override
+   @Start(priority = 8) // Should start after the externalizer table and before transport
    public void start() {
       defaultMarshaller = new JBossMarshaller(extTable, cfg, icc, globalCfg);
       defaultMarshaller.start();
    }
 
    @Override
+   @Stop(priority = 11) // Stop after transport to avoid send/receive and marshaller not being ready
    public void stop() {
       defaultMarshaller.stop();
    }
