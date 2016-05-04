@@ -33,20 +33,16 @@ public class Cons<T> extends AbstractCollection<T> {
    }
 
    public T head() {
-      if (this.isEmpty())
-         throw new IllegalStateException("empty");
       return head;
    }
 
    public Cons<T> tail() {
-      if (this.isEmpty())
-         throw new IllegalStateException("empty");
       return tail;
    }
 
    @Override
    public boolean isEmpty() {
-      return this == EMPTY;
+      return tail == null;
    }
 
    @Override
@@ -56,12 +52,12 @@ public class Cons<T> extends AbstractCollection<T> {
 
          @Override
          public boolean hasNext() {
-            return current != EMPTY;
+            return !current.isEmpty();
          }
 
          @Override
          public T next() {
-            if (current == EMPTY)
+            if (current.isEmpty())
                throw new NoSuchElementException();
 
             T value = current.head;

@@ -93,14 +93,13 @@ public abstract class BaseSequentialInvocationContext
       nextReturnHandler = Cons.empty();
       try {
          try {
-            Object returnValue = doInvokeNextSync(newCommand);
+            Object returnValue = invokeInterceptorsSync(newCommand);
             return invokeReturnHandlersSync(newCommand, returnValue, null);
          } catch (Throwable t) {
             return invokeReturnHandlersSync(newCommand, null, t);
          }
       } finally {
-         // If an exception was thrown from an interceptor/return handler, nextInterceptor is not empty
-         assert nextReturnHandler.isEmpty();
+         action = INVOKE_NEXT;
          nextInterceptor = savedInterceptorNode;
          nextReturnHandler = savedReturnHandler;
       }
@@ -108,9 +107,11 @@ public abstract class BaseSequentialInvocationContext
 
    private Object invokeReturnHandlersSync(VisitableCommand command, Object returnValue, Throwable throwable)
          throws Throwable {
-      while (!nextReturnHandler.isEmpty()) {
-         SequentialInterceptor.ReturnHandler current = nextReturnHandler.head();
-         nextReturnHandler = nextReturnHandler.tail();
+      Cons<SequentialInterceptor.ReturnHandler> returnHandlerNode = nextReturnHandler;
+      while (!returnHandlerNode.isEmpty()) {
+         SequentialInterceptor.ReturnHandler current = returnHandlerNode.head();
+         returnHandlerNode = returnHandlerNode.tail();
+         this.nextReturnHandler = returnHandlerNode;
 
          try {
             returnValue = invokeReturnHandlerSync(current, command, returnValue, throwable);
@@ -276,84 +277,81 @@ public abstract class BaseSequentialInvocationContext
       return forkInvocationSync(command);
    }
 
-   private Object doInvokeNextSync(VisitableCommand command)
+   private Object invokeInterceptorsSync(VisitableCommand command)
          throws Throwable {
-      SequentialInterceptor interceptor = nextInterceptor.head();
-      nextInterceptor = nextInterceptor.tail();
+      Cons<SequentialInterceptor> interceptorNode = nextInterceptor;
+      while (!interceptorNode.isEmpty()) {
+         SequentialInterceptor interceptor = interceptorNode.head();
 
-      if (trace) {
-         log.tracef("Invoking interceptor %s with command %s", className(interceptor), className(command));
-      }
-      try {
-         CompletableFuture<Void> nextVisitFuture;
-         // Simplify the execution for double-dispatch interceptors
-         if (interceptor instanceof DDSequentialInterceptor) {
-            nextVisitFuture = (CompletableFuture<Void>) command
-                  .acceptVisitor(this, (DDSequentialInterceptor) interceptor);
-         } else {
-            nextVisitFuture = interceptor.visitCommand(this, command);
+         if (trace) {
+            log.tracef("Invoking interceptor %s with command %s", className(interceptor), className(command));
          }
-         CompletableFutures.await(nextVisitFuture);
-         return handleActionSync(command);
-      } catch (Throwable t) {
-         if (trace) log.tracef("Exception from interceptor: %s", t);
-         // Unwrap the exception from CompletableFutures.await
-         Throwable throwable = t instanceof ExecutionException ? t.getCause() : t instanceof CompletionException ? t.getCause() : t;
-         throw throwable;
-      }
-   }
+         try {
+            interceptorNode = interceptorNode.tail();
+            this.nextInterceptor = interceptorNode;
+            CompletableFuture<Void> nextVisitFuture;
+            // Simplify the execution for double-dispatch interceptors
+            if (interceptor instanceof DDSequentialInterceptor) {
+               nextVisitFuture = (CompletableFuture<Void>) command.acceptVisitor(this, (DDSequentialInterceptor) interceptor);
+            } else {
+               nextVisitFuture = interceptor.visitCommand(this, command);
+            }
+            CompletableFutures.await(nextVisitFuture);
+         } catch (Throwable t) {
+            if (trace) {
+               log.tracef("Exception from interceptor: %s", t);
+            }
+            // Unwrap the exception from CompletableFutures.await
+            Throwable throwable = t instanceof ExecutionException ? t.getCause() :
+                                  t instanceof CompletionException ? t.getCause() : t;
+            throw throwable;
+         }
 
-   private Object handleActionSync(VisitableCommand command)
-         throws Throwable {
-      if (action == INVOKE_NEXT) {
-         // Continue with the next interceptor
-         return doInvokeNextSync(command);
-      } else if (action == SHORT_CIRCUIT) {
-         // Skip the rest of the interceptors
-         nextInterceptor = Cons.empty();
-         action = INVOKE_NEXT;
-         return actionValue;
-      } else if (action == FORK_INVOCATION) {
-         // Continue with the next interceptor, but with a new command
-         ForkInfo forkInfo = (ForkInfo) actionValue;
-         forkInfo.savedCommand = command;
-         nextReturnHandler = Cons.make(forkInfo, nextReturnHandler);
-         action = INVOKE_NEXT;
-         actionValue = null;
-         return doInvokeNextSync(forkInfo.newCommand);
-      } else {
-         throw new IllegalStateException("Illegal action type: " + action);
+         while (action == FORK_INVOCATION) {
+            action = INVOKE_NEXT;
+            ForkInfo forkInfo = (ForkInfo) actionValue;
+            forkInfo.savedCommand = command;
+            Object forkReturnValue = null;
+            Throwable throwable = null;
+            try {
+               forkReturnValue = forkInvocationSync(forkInfo.newCommand);
+            } catch (Throwable t) {
+               throwable = t;
+            }
+            nextInterceptor = forkInfo.savedInterceptor;
+            action = INVOKE_NEXT;
+            if (trace) {
+               log.tracef("Invoking fork return handler %s with return value/exception: %s/%s",
+                     className(forkInfo.forkReturnHandler), className(forkReturnValue), className(throwable));
+            }
+            CompletableFuture handlerFuture = forkInfo.forkReturnHandler
+                  .handle(this, forkInfo.savedCommand, forkReturnValue, throwable);
+            CompletableFutures.await(handlerFuture);
+         }
+         if (action == SHORT_CIRCUIT) {
+            // Skip the rest of the interceptors
+            return actionValue;
+         }
       }
+      throw new IllegalStateException("CallInterceptor must call shortCircuit");
    }
 
    private Object invokeReturnHandlerSync(SequentialInterceptor.ReturnHandler returnHandler,
          VisitableCommand command, Object returnValue, Throwable throwable) throws Throwable {
-      if (returnHandler instanceof ForkInfo) {
-         ForkInfo forkInfo = (ForkInfo) returnHandler;
-         if (trace)
-            log.tracef("Invoking fork return handler %s with return value/exception: %s/%s",
-                  className(forkInfo.forkReturnHandler), className(returnValue), className(throwable));
-         CompletableFuture handlerFuture = handleForkReturn(forkInfo, returnValue, throwable);
-         if (!handlerFuture.isDone()) {
-            CompletableFutures.await(handlerFuture);
-         }
-         return handleActionSync(command);
-      } else {
-         if (trace)
-            log.tracef("Invoking return handler %s with return value/exception: %s/%s",
-                  className(returnHandler), className(returnValue), className(throwable));
-         CompletableFuture<Object> handlerFuture =
-               returnHandler.handle(this, command, returnValue, throwable);
-         if (handlerFuture != null) {
-            return CompletableFutures.await(handlerFuture);
-         }
+      if (trace)
+         log.tracef("Invoking return handler %s with return value/exception: %s/%s",
+               className(returnHandler), className(returnValue), className(throwable));
+      CompletableFuture<Object> handlerFuture =
+            returnHandler.handle(this, command, returnValue, throwable);
+      if (handlerFuture != null) {
+         return CompletableFutures.await(handlerFuture);
+      }
 
-         // A return value of null means we preserve the existing return value/exception
-         if (throwable != null) {
-            throw throwable;
-         } else {
-            return returnValue;
-         }
+      // A return value of null means we preserve the existing return value/exception
+      if (throwable != null) {
+         throw throwable;
+      } else {
+         return returnValue;
       }
    }
 
