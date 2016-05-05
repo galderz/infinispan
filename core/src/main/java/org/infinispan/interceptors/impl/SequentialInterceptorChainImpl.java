@@ -14,7 +14,6 @@ import org.infinispan.factories.scopes.Scope;
 import org.infinispan.factories.scopes.Scopes;
 import org.infinispan.interceptors.SequentialInterceptor;
 import org.infinispan.interceptors.SequentialInterceptorChain;
-import org.infinispan.util.Cons;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -47,7 +46,7 @@ public class SequentialInterceptorChainImpl implements SequentialInterceptorChai
 
    // Modifications are guarded with "lock", but reads do not need synchronization
    private volatile List<SequentialInterceptor> interceptors = EMPTY_INTERCEPTORS_LIST;
-   private volatile Cons<SequentialInterceptor> firstInterceptor = null;
+   private volatile InterceptorListNode firstInterceptor = null;
 
    public SequentialInterceptorChainImpl(ComponentMetadataRepo componentMetadataRepo) {
       this.componentMetadataRepo = componentMetadataRepo;
@@ -319,10 +318,10 @@ public class SequentialInterceptorChainImpl implements SequentialInterceptorChai
    }
 
    private void rebuildInterceptors() {
-      Cons<SequentialInterceptor> node = Cons.empty();
+      InterceptorListNode node = null;
       ListIterator<SequentialInterceptor> it = interceptors.listIterator(interceptors.size());
       while (it.hasPrevious()) {
-         node = Cons.make(it.previous(), node);
+         node = new InterceptorListNode(it.previous(), node);
       }
       this.firstInterceptor = node;
    }
