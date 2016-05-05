@@ -52,6 +52,7 @@ import org.infinispan.filter.KeyFilter;
 import org.infinispan.interceptors.DDSequentialInterceptor;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.metadata.Metadata;
+import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.statetransfer.OutdatedTopologyException;
 import org.infinispan.statetransfer.StateConsumer;
 import org.infinispan.statetransfer.StateTransferLock;
@@ -87,6 +88,7 @@ public class EntryWrappingInterceptor extends DDSequentialInterceptor {
    private StateTransferLock stateTransferLock;
    private XSiteStateConsumer xSiteStateConsumer;
    private GroupManager groupManager;
+   private CacheNotifier notifier;
 
    private static final Log log = LogFactory.getLog(EntryWrappingInterceptor.class);
    private static final boolean trace = log.isTraceEnabled();
@@ -98,11 +100,20 @@ public class EntryWrappingInterceptor extends DDSequentialInterceptor {
       public CompletableFuture<Object> handle(InvocationContext ctx, VisitableCommand command, Object rv,
             Throwable throwable) throws Throwable {
          AbstractDataCommand command1 = (AbstractDataCommand) command;
-         //needed because entries might be added in L1
+
+         // TODO needed because entries might be added in L1?
          if (!ctx.isInTxScope()) {
             commitContextEntries(ctx, command1, null);
          } else {
             setSkipLookup(ctx, command1.getKey());
+         }
+
+         // Entry visit notifications used to happen in the CallInterceptor
+         // We do it after (maybe) committing the entries, to avoid adding another try/finally block
+         if (throwable == null && rv != null) {
+            Object value = command1 instanceof GetCacheEntryCommand ? ((CacheEntry) rv).getValue() : rv;
+            notifier.notifyCacheEntryVisited(command1.getKey(), value, true, ctx, command1);
+            notifier.notifyCacheEntryVisited(command1.getKey(), value, false, ctx, command1);
          }
          return null;
       }
@@ -135,7 +146,7 @@ public class EntryWrappingInterceptor extends DDSequentialInterceptor {
    @Inject
    public void init(EntryFactory entryFactory, DataContainer<Object, Object> dataContainer, ClusteringDependentLogic cdl,
                     CommandsFactory commandFactory, StateConsumer stateConsumer, StateTransferLock stateTransferLock,
-                    XSiteStateConsumer xSiteStateConsumer, GroupManager groupManager) {
+                    XSiteStateConsumer xSiteStateConsumer, GroupManager groupManager, CacheNotifier notifier) {
       this.entryFactory = entryFactory;
       this.dataContainer = dataContainer;
       this.cdl = cdl;
@@ -144,6 +155,7 @@ public class EntryWrappingInterceptor extends DDSequentialInterceptor {
       this.stateTransferLock = stateTransferLock;
       this.xSiteStateConsumer = xSiteStateConsumer;
       this.groupManager = groupManager;
+      this.notifier = notifier;
    }
 
    @Start
