@@ -2,6 +2,7 @@ package org.infinispan.interceptors.locking;
 
 import org.infinispan.commands.DataCommand;
 import org.infinispan.commands.LocalFlagAffectedCommand;
+import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.functional.ReadWriteKeyCommand;
 import org.infinispan.commands.functional.ReadWriteKeyValueCommand;
 import org.infinispan.commands.functional.WriteOnlyKeyCommand;
@@ -45,9 +46,13 @@ public abstract class AbstractLockingInterceptor extends DDSequentialInterceptor
    protected DataContainer<Object, Object> dataContainer;
    protected ClusteringDependentLogic cdl;
 
-   protected ReturnHandler unlockAllReturnHandler = (ctx1, command1, rv, throwable) -> {
-      lockManager.unlockAll(ctx1);
-      return null;
+   protected ReturnHandler unlockAllReturnHandler = new ReturnHandler() {
+      @Override
+      public CompletableFuture<Object> handle(InvocationContext ctx1, VisitableCommand command1, Object rv,
+            Throwable throwable) throws Throwable {
+         lockManager.unlockAll(ctx1);
+         return null;
+      }
    };
 
    protected abstract Log getLog();
@@ -148,8 +153,8 @@ public abstract class AbstractLockingInterceptor extends DDSequentialInterceptor
 
       ctx.onReturn((ctx1, command1, rv, throwable) -> {
          command.setKeys(keys);
-         if (!ctx.isInTxScope())
-            lockManager.unlockAll(ctx);
+         if (!ctx1.isInTxScope())
+            lockManager.unlockAll(ctx1);
          return null;
       });
       command.setKeys(keysToInvalidate.toArray());

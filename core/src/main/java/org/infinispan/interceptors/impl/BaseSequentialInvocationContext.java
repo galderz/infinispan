@@ -288,13 +288,7 @@ public abstract class BaseSequentialInvocationContext
          try {
             interceptorNode = interceptorNode.nextNode;
             this.nextInterceptor = interceptorNode;
-            CompletableFuture<Void> nextVisitFuture;
-            // Simplify the execution for double-dispatch interceptors
-            if (interceptor instanceof DDSequentialInterceptor) {
-               nextVisitFuture = (CompletableFuture<Void>) command.acceptVisitor(this, (DDSequentialInterceptor) interceptor);
-            } else {
-               nextVisitFuture = interceptor.visitCommand(this, command);
-            }
+            CompletableFuture<Void> nextVisitFuture = invokeInterceptor(command, interceptor);
             if (nextVisitFuture != CONTINUE_INVOCATION) {
                CompletableFutures.await(nextVisitFuture);
             }
@@ -311,7 +305,6 @@ public abstract class BaseSequentialInvocationContext
          while (action == FORK_INVOCATION) {
             action = INVOKE_NEXT;
             ForkInfo forkInfo = (ForkInfo) actionValue;
-//            forkInfo.savedCommand = command;
             Object forkReturnValue = null;
             Throwable throwable = null;
             try {
@@ -333,6 +326,17 @@ public abstract class BaseSequentialInvocationContext
          }
       }
       throw new IllegalStateException("CallInterceptor must call shortCircuit");
+   }
+
+   private CompletableFuture<Void> invokeInterceptor(VisitableCommand command,
+         SequentialInterceptor interceptor) throws Throwable {
+      CompletableFuture<Void> nextVisitFuture;// Simplify the execution for double-dispatch interceptors
+      if (interceptor instanceof DDSequentialInterceptor) {
+         nextVisitFuture = (CompletableFuture<Void>) command.acceptVisitor(this, (DDSequentialInterceptor) interceptor);
+      } else {
+         nextVisitFuture = interceptor.visitCommand(this, command);
+      }
+      return nextVisitFuture;
    }
 
    private Object invokeReturnHandlerSync(SequentialInterceptor.ReturnHandler returnHandler,
