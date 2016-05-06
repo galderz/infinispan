@@ -101,7 +101,7 @@ public class InvocationContextInterceptor extends BaseSequentialInterceptor {
          throw new IllegalStateException("Null context not allowed!!");
 
       ComponentStatus status = componentRegistry.getStatus();
-         if (command.ignoreCommandOnStatus(status)) {
+      if (command.ignoreCommandOnStatus(status)) {
          log.debugf("Status: %s : Ignoring %s command", status, command);
             return ctx.shortCircuit(null);
       } else {
@@ -112,10 +112,8 @@ public class InvocationContextInterceptor extends BaseSequentialInterceptor {
          }
       }
 
-      ctx.onReturn(defaultReturnHandler);
-
       invocationContextContainer.setThreadLocal(ctx);
-      return ctx.continueInvocation();
+      return ctx.onReturn(defaultReturnHandler);
    }
 
    private void rethrowException(InvocationContext ctx, VisitableCommand command, Throwable th)
