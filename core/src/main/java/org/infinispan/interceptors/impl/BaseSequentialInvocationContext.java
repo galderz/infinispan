@@ -81,10 +81,14 @@ public abstract class BaseSequentialInvocationContext
 
    private void preActionCheck() {
       if (action != INVOKE_NEXT) {
-         throw new IllegalStateException(
-               "An interceptor can call shortCircuit or forkInvocation at most once. The current action is " +
-                     actionName(action));
+         throwActionException();
       }
+   }
+
+   private void throwActionException() {
+      throw new IllegalStateException(
+            "An interceptor can call shortCircuit or forkInvocation at most once. The current action is " +
+                  actionName(action));
    }
 
    @Override
