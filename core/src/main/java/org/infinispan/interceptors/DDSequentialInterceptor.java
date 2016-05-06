@@ -1,5 +1,6 @@
 package org.infinispan.interceptors;
 
+import org.infinispan.commands.AbstractFlagAffectedCommand;
 import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.Visitor;
 import org.infinispan.commands.control.LockControlCommand;
@@ -13,6 +14,7 @@ import org.infinispan.commands.functional.WriteOnlyKeyCommand;
 import org.infinispan.commands.functional.WriteOnlyKeyValueCommand;
 import org.infinispan.commands.functional.WriteOnlyManyCommand;
 import org.infinispan.commands.functional.WriteOnlyManyEntriesCommand;
+import org.infinispan.commands.read.AbstractDataCommand;
 import org.infinispan.commands.read.DistributedExecuteCommand;
 import org.infinispan.commands.read.EntrySetCommand;
 import org.infinispan.commands.read.GetAllCommand;
@@ -21,9 +23,11 @@ import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.commands.read.KeySetCommand;
 import org.infinispan.commands.read.SizeCommand;
 import org.infinispan.commands.remote.GetKeysInGroupCommand;
+import org.infinispan.commands.tx.AbstractTransactionBoundaryCommand;
 import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.tx.RollbackCommand;
+import org.infinispan.commands.write.AbstractDataWriteCommand;
 import org.infinispan.commands.write.ApplyDeltaCommand;
 import org.infinispan.commands.write.ClearCommand;
 import org.infinispan.commands.write.EvictCommand;
@@ -50,6 +54,66 @@ import java.util.concurrent.CompletableFuture;
    @Override
    public final CompletableFuture<Void> visitCommand(InvocationContext ctx, VisitableCommand command)
          throws Throwable {
+      if (command instanceof AbstractDataCommand) {
+         if (command instanceof AbstractDataWriteCommand) {
+            if (command instanceof PutKeyValueCommand) {
+               return visitPutKeyValueCommand(ctx, (PutKeyValueCommand) command);
+            } else if (command instanceof ApplyDeltaCommand) {
+               return visitApplyDeltaCommand(ctx, (ApplyDeltaCommand) command);
+            } else if (command instanceof EvictCommand) {
+               return visitEvictCommand(ctx, (EvictCommand) command);
+            } else if (command instanceof InvalidateL1Command) {
+               return visitInvalidateL1Command(ctx, (InvalidateL1Command) command);
+            } else if (command instanceof InvalidateCommand) {
+               return visitInvalidateCommand(ctx, (InvalidateCommand) command);
+            } else if (command instanceof RemoveCommand) {
+               // Includes RemoveExpiredCommand
+               return visitRemoveCommand(ctx, (RemoveCommand) command);
+            } else if (command instanceof ReplaceCommand) {
+               return visitReplaceCommand(ctx, (ReplaceCommand) command);
+            } else if (command instanceof ReadWriteKeyCommand) {
+               return visitReadWriteKeyCommand(ctx, (ReadWriteKeyCommand) command);
+            } else if (command instanceof ReadWriteKeyValueCommand) {
+               return visitReadWriteKeyValueCommand(ctx, (ReadWriteKeyValueCommand) command);
+            } else if (command instanceof WriteOnlyKeyCommand) {
+               return visitWriteOnlyKeyCommand(ctx, (WriteOnlyKeyCommand) command);
+            } else if (command instanceof WriteOnlyKeyValueCommand) {
+               return visitWriteOnlyKeyValueCommand(ctx, (WriteOnlyKeyValueCommand) command);
+            }
+         } else if (command instanceof GetCacheEntryCommand) {
+            return visitGetCacheEntryCommand(ctx, (GetCacheEntryCommand) command);
+         } else if (command instanceof GetKeyValueCommand) {
+            return visitGetKeyValueCommand(ctx, (GetKeyValueCommand) command);
+         } else if (command instanceof ReadOnlyKeyCommand) {
+            return visitReadOnlyKeyCommand(ctx, (ReadOnlyKeyCommand) command);
+         } else if (command instanceof ReadOnlyManyCommand) {
+            return visitReadOnlyManyCommand(ctx, (ReadOnlyManyCommand) command);
+         }
+      } else if (command instanceof AbstractTransactionBoundaryCommand) {
+         TxInvocationContext txContext = (TxInvocationContext) ctx;
+         if (command instanceof CommitCommand) {
+            return visitCommitCommand(txContext, (CommitCommand) command);
+         } else if (command instanceof LockControlCommand) {
+            return visitLockControlCommand(txContext, (LockControlCommand) command);
+         } else if (command instanceof PrepareCommand) {
+            return visitPrepareCommand(txContext, (PrepareCommand) command);
+         } else if (command instanceof RollbackCommand) {
+            return visitRollbackCommand(txContext, (RollbackCommand) command);
+         }
+      } else if (command instanceof AbstractFlagAffectedCommand) {
+         if (command instanceof GetAllCommand) {
+            return visitGetAllCommand(ctx, (GetAllCommand) command);
+         } else if (command instanceof GetKeysInGroupCommand) {
+            return visitGetKeysInGroupCommand(ctx, (GetKeysInGroupCommand) command);
+         } else if (command instanceof PutMapCommand) {
+            return visitPutMapCommand(ctx, (PutMapCommand) command);
+         }
+      } else if (command instanceof ReadWriteManyCommand) {
+         return visitReadWriteManyCommand(ctx, (ReadWriteManyCommand) command);
+      } else if (command instanceof ReadWriteManyEntriesCommand) {
+         return visitReadWriteManyEntriesCommand(ctx, (ReadWriteManyEntriesCommand) command);
+      }
+
       return (CompletableFuture<Void>) command.acceptVisitor(ctx, this);
    }
 
