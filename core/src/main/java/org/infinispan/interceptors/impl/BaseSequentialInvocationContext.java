@@ -100,12 +100,19 @@ public abstract class BaseSequentialInvocationContext
          Object returnValue = invokeInterceptorsSync(newCommand, savedInterceptorNode);
          return invokeReturnHandlersSync(newCommand, returnValue, null);
       } catch (Throwable t) {
-         return invokeReturnHandlersSync(newCommand, null, t);
+         // Unwrap the exception from CompletableFutures.await
+         Throwable throwable = extractCompletableFutureException(t);
+         return invokeReturnHandlersSync(newCommand, null, throwable);
       } finally {
          action = INVOKE_NEXT;
          nextInterceptor = savedInterceptorNode;
          nextReturnHandler = savedReturnHandler;
       }
+   }
+
+   private Throwable extractCompletableFutureException(Throwable t) {
+      return t instanceof ExecutionException ? t.getCause() :
+             t instanceof CompletionException ? t.getCause() : t;
    }
 
    private Object invokeReturnHandlersSync(VisitableCommand command, Object returnValue, Throwable throwable)
@@ -276,7 +283,9 @@ public abstract class BaseSequentialInvocationContext
          Object returnValue = invokeInterceptorsSync(command, firstInterceptor);
          return invokeReturnHandlersSync(command, returnValue, null);
       } catch (Throwable t) {
-         return invokeReturnHandlersSync(command, null, t);
+         // Unwrap the exception from CompletableFutures.await
+         Throwable throwable = extractCompletableFutureException(t);
+         return invokeReturnHandlersSync(command, null, throwable);
       }
    }
 
@@ -285,44 +294,19 @@ public abstract class BaseSequentialInvocationContext
       InterceptorListNode interceptorNode = firstInterceptorNode;
       while (interceptorNode != null) {
          SequentialInterceptor interceptor = interceptorNode.interceptor;
+         interceptorNode = interceptorNode.nextNode;
 
          if (trace) {
             log.tracef("Invoking interceptor %s with command %s", className(interceptor), className(command));
          }
-         try {
-            interceptorNode = interceptorNode.nextNode;
-            this.nextInterceptor = interceptorNode;
-            CompletableFuture<Void> nextVisitFuture = invokeInterceptor(command, interceptor);
-            if (nextVisitFuture != CONTINUE_INVOCATION) {
-               CompletableFutures.await(nextVisitFuture);
-            }
-         } catch (Throwable t) {
-            if (trace) {
-               log.tracef("Exception from interceptor: %s", t);
-            }
-            // Unwrap the exception from CompletableFutures.await
-            Throwable throwable = t instanceof ExecutionException ? t.getCause() :
-                                  t instanceof CompletionException ? t.getCause() : t;
-            throw throwable;
+         this.nextInterceptor = interceptorNode;
+         CompletableFuture<Void> nextVisitFuture = invokeInterceptor(command, interceptor);
+         if (nextVisitFuture != CONTINUE_INVOCATION) {
+            CompletableFutures.await(nextVisitFuture);
          }
 
          while (action == FORK_INVOCATION) {
-            action = INVOKE_NEXT;
-            ForkInfo forkInfo = (ForkInfo) actionValue;
-            Object forkReturnValue = null;
-            Throwable throwable = null;
-            try {
-               forkReturnValue = forkInvocationSync(forkInfo.newCommand);
-            } catch (Throwable t) {
-               throwable = t;
-            }
-            if (trace) {
-               log.tracef("Invoking fork return handler %s with return value/exception: %s/%s",
-                     className(forkInfo.forkReturnHandler), className(forkReturnValue), className(throwable));
-            }
-            CompletableFuture handlerFuture = forkInfo.forkReturnHandler
-                  .handle(this, command, forkReturnValue, throwable);
-            CompletableFutures.await(handlerFuture);
+            invokeForkAndHandlerSync(command);
          }
          if (action == SHORT_CIRCUIT) {
             // Skip the rest of the interceptors
@@ -332,9 +316,28 @@ public abstract class BaseSequentialInvocationContext
       throw new IllegalStateException("CallInterceptor must call shortCircuit");
    }
 
+   private void invokeForkAndHandlerSync(VisitableCommand command) throws Throwable {
+      action = INVOKE_NEXT;
+      ForkInfo forkInfo = (ForkInfo) actionValue;
+      Object forkReturnValue = null;
+      Throwable throwable = null;
+      try {
+         forkReturnValue = forkInvocationSync(forkInfo.newCommand);
+      } catch (Throwable t) {
+         throwable = t;
+      }
+      if (trace) {
+         log.tracef("Invoking fork return handler %s with return value/exception: %s/%s",
+               className(forkInfo.forkReturnHandler), className(forkReturnValue), className(throwable));
+      }
+      CompletableFuture handlerFuture = forkInfo.forkReturnHandler
+            .handle(this, command, forkReturnValue, throwable);
+      CompletableFutures.await(handlerFuture);
+   }
+
    private CompletableFuture<Void> invokeInterceptor(VisitableCommand command,
          SequentialInterceptor interceptor) throws Throwable {
-      CompletableFuture<Void> nextVisitFuture;// Simplify the execution for double-dispatch interceptors
+      CompletableFuture<Void> nextVisitFuture;
       if (interceptor instanceof DDSequentialInterceptor) {
          nextVisitFuture = (CompletableFuture<Void>) command.acceptVisitor(this, (DDSequentialInterceptor) interceptor);
       } else {
