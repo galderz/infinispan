@@ -4,7 +4,6 @@ import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commons.CacheException;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.SequentialInvocationContext;
-import org.infinispan.interceptors.DDSequentialInterceptor;
 import org.infinispan.interceptors.SequentialInterceptor;
 import org.infinispan.util.concurrent.CompletableFutures;
 import org.infinispan.util.logging.Log;
@@ -295,25 +294,28 @@ public abstract class BaseSequentialInvocationContext
       while (interceptorNode != null) {
          SequentialInterceptor interceptor = interceptorNode.interceptor;
          interceptorNode = interceptorNode.nextNode;
-
-         if (trace) {
-            log.tracef("Invoking interceptor %s with command %s", className(interceptor), className(command));
-         }
-         this.nextInterceptor = interceptorNode;
-         CompletableFuture<Void> nextVisitFuture = invokeInterceptor(command, interceptor);
-         if (nextVisitFuture != CONTINUE_INVOCATION) {
-            CompletableFutures.await(nextVisitFuture);
-         }
-
-         while (action == FORK_INVOCATION) {
-            invokeForkAndHandlerSync(command);
-         }
-         if (action == SHORT_CIRCUIT) {
+         if (invoke1Interceptor(command, interceptorNode, interceptor)) {
             // Skip the rest of the interceptors
             return actionValue;
          }
       }
       throw new IllegalStateException("CallInterceptor must call shortCircuit");
+   }
+
+   private boolean invoke1Interceptor(VisitableCommand command, InterceptorListNode interceptorNode,
+         SequentialInterceptor interceptor) throws Throwable {
+      this.nextInterceptor = interceptorNode;
+
+      if (trace)
+         log.tracef("Invoking interceptor %s with command %s", className(interceptor), className(command));
+      CompletableFuture<Void> nextVisitFuture = interceptor.visitCommand(this, command);
+      if (nextVisitFuture != CONTINUE_INVOCATION) {
+         CompletableFutures.await(nextVisitFuture);
+      }
+      while (action == FORK_INVOCATION) {
+         invokeForkAndHandlerSync(command);
+      }
+      return action == SHORT_CIRCUIT;
    }
 
    private void invokeForkAndHandlerSync(VisitableCommand command) throws Throwable {
@@ -333,17 +335,6 @@ public abstract class BaseSequentialInvocationContext
       CompletableFuture handlerFuture = forkInfo.forkReturnHandler
             .handle(this, command, forkReturnValue, throwable);
       CompletableFutures.await(handlerFuture);
-   }
-
-   private CompletableFuture<Void> invokeInterceptor(VisitableCommand command,
-         SequentialInterceptor interceptor) throws Throwable {
-      CompletableFuture<Void> nextVisitFuture;
-      if (interceptor instanceof DDSequentialInterceptor) {
-         nextVisitFuture = (CompletableFuture<Void>) command.acceptVisitor(this, (DDSequentialInterceptor) interceptor);
-      } else {
-         nextVisitFuture = interceptor.visitCommand(this, command);
-      }
-      return nextVisitFuture;
    }
 
    private Object invokeReturnHandlerSync(SequentialInterceptor.ReturnHandler returnHandler,
