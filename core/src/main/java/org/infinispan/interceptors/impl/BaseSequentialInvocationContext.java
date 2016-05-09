@@ -291,24 +291,167 @@ public abstract class BaseSequentialInvocationContext
    private Object invokeInterceptorsSync(VisitableCommand command, InterceptorListNode firstInterceptorNode)
          throws Throwable {
       InterceptorListNode interceptorNode = firstInterceptorNode;
-      while (interceptorNode != null) {
-         SequentialInterceptor interceptor = interceptorNode.interceptor;
-         interceptorNode = interceptorNode.nextNode;
-         if (invoke1Interceptor(command, interceptorNode, interceptor)) {
-            // Skip the rest of the interceptors
-            return actionValue;
-         }
+      SequentialInterceptor interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      CompletableFuture<Void> nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
       }
-      throw new IllegalStateException("CallInterceptor must call shortCircuit");
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+      interceptor = interceptorNode.interceptor;
+      interceptorNode = beforeVisit(command, interceptorNode, interceptor);
+      nextVisitFuture = interceptor.visitCommand(this, command);
+      if (afterVisit(command, nextVisitFuture)) {
+         // Skip the rest of the interceptors
+         return actionValue;
+      }
+
+      if (interceptorNode != null) {
+         throw new IllegalStateException("Too many interceptors!");
+      } else {
+         throw new IllegalStateException("CallInterceptor must call shortCircuit");
+      }
    }
 
-   private boolean invoke1Interceptor(VisitableCommand command, InterceptorListNode interceptorNode,
-         SequentialInterceptor interceptor) throws Throwable {
+   private InterceptorListNode beforeVisit(VisitableCommand command, InterceptorListNode interceptorNode,
+         SequentialInterceptor interceptor) {
+      interceptorNode = interceptorNode.nextNode;
       this.nextInterceptor = interceptorNode;
 
       if (trace)
-         log.tracef("Invoking interceptor %s with command %s", className(interceptor), className(command));
-      CompletableFuture<Void> nextVisitFuture = interceptor.visitCommand(this, command);
+         log.tracef("Invoking interceptor %s with command %s", className(interceptor),
+               className(command));
+      return interceptorNode;
+   }
+
+   private boolean afterVisit(VisitableCommand command, CompletableFuture<Void> nextVisitFuture)
+         throws Throwable {
       if (nextVisitFuture != CONTINUE_INVOCATION) {
          CompletableFutures.await(nextVisitFuture);
       }
