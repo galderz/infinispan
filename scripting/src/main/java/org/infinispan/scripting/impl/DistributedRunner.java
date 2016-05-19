@@ -1,12 +1,16 @@
 package org.infinispan.scripting.impl;
 
 import java.lang.invoke.MethodHandles;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import org.infinispan.Cache;
+import org.infinispan.cache.impl.DecoratedCache;
+import org.infinispan.context.Flag;
 import org.infinispan.distexec.DefaultExecutorService;
 import org.infinispan.scripting.logging.Log;
 import org.infinispan.util.concurrent.CompletableFutures;
@@ -34,7 +38,8 @@ public class DistributedRunner implements ScriptRunner {
       DefaultExecutorService des = new DefaultExecutorService(masterCacheNode);
       try {
          Map<String, Object> ctxParams = extractContextParams(metadata, binding);
-         List<CompletableFuture<T>> tasks = des.submitEverywhere(new DistributedScript<T>(metadata, ctxParams));
+         List<CompletableFuture<T>> tasks = des.submitEverywhere(
+               new DistributedScript<T>(metadata, ctxParams, getMaybeFlags(binding)));
 
          return (CompletableFuture<T>) CompletableFutures.sequence(tasks);
       } finally {
@@ -46,6 +51,11 @@ public class DistributedRunner implements ScriptRunner {
       Map<String, Object> params = new HashMap<>();
       metadata.parameters().stream().forEach(paramName -> params.put(paramName, binding.get(paramName)));
       return params;
+   }
+
+   private static Optional<EnumSet<Flag>> getMaybeFlags(CacheScriptBindings binding) {
+      return Optional.ofNullable(
+            (EnumSet<Flag>) binding.get(SystemBindings.CACHE_FLAGS.toString()));
    }
 
 }

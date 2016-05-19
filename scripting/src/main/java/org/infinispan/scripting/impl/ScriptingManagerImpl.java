@@ -14,6 +14,7 @@ import javax.script.ScriptException;
 import javax.script.SimpleBindings;
 
 import org.infinispan.Cache;
+import org.infinispan.cache.impl.DecoratedCache;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 import org.infinispan.commons.util.CollectionFactory;
 import org.infinispan.configuration.cache.CacheMode;
@@ -174,9 +175,13 @@ public class ScriptingManagerImpl implements ScriptingManager {
       systemBindings.put(SystemBindings.CACHE_MANAGER.toString(), cm);
       systemBindings.put(SystemBindings.SCRIPTING_MANAGER.toString(), this);
       context.getCache().ifPresent(cache -> {
+         if (cache instanceof DecoratedCache)
+            systemBindings.put(SystemBindings.CACHE_FLAGS.toString(), ((DecoratedCache<?, ?>) cache).getFlags());
+
          Cache<?, ?> c = cm.getCacheConfiguration(cache.getName()).compatibility().enabled()
                ? cache : new DataTypedCache<>(cm, cache);
          systemBindings.put(SystemBindings.CACHE.toString(), c);
+
       });
 
       context.getMarshaller().ifPresent(marshaller -> {

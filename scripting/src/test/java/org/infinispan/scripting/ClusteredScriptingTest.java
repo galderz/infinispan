@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.infinispan.scripting.utils.ScriptingUtils.*;
 import static org.infinispan.test.TestingUtil.waitForRehashToComplete;
@@ -124,16 +126,19 @@ public class ClusteredScriptingTest extends AbstractInfinispanTest {
 
    @Test(dataProvider = "cacheModeProvider")
    public void testDistributedMapReduceStreamWithFlag(final CacheMode cacheMode) throws IOException, ExecutionException, InterruptedException {
-      withCacheManagers(new MultiCacheManagerCallable(TestCacheManagerFactory.createCacheManager(cacheMode, false),
-              TestCacheManagerFactory.createCacheManager(cacheMode, false)) {
+      withCacheManagers(new MultiCacheManagerCallable(
+            TestCacheManagerFactory.createCacheManager(cacheMode, false),
+            TestCacheManagerFactory.createCacheManager(cacheMode, false),
+            TestCacheManagerFactory.createCacheManager(cacheMode, false)) {
          public void call() throws Exception {
             ScriptingManager scriptingManager = getScriptingManager(cms[0]);
             Cache cache1 = cms[0].getCache();
             Cache cache2 = cms[1].getCache();
+            Cache cache3 = cms[2].getCache();
 
             loadData(cache1, "/macbeth.txt");
             loadScript(scriptingManager, "/wordCountStream.js");
-            waitForRehashToComplete(cache1, cache2);
+            waitForRehashToComplete(cache1, cache2, cache3);
 
             Map<String, Long> resultsFuture = (Map<String, Long>) scriptingManager.runScript(
                     "wordCountStream.js", new TaskContext().cache(cache1.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL))).get();
@@ -141,15 +146,47 @@ public class ClusteredScriptingTest extends AbstractInfinispanTest {
             assertEquals(resultsFuture.get("macbeth"), Long.valueOf(287));
 
             resultsFuture = (Map<String, Long>) scriptingManager.runScript(
-                    "wordCountStream.js", new TaskContext().cache(cache1.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL))).get();
+                    "wordCountStream.js", new TaskContext().cache(cache2.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL))).get();
+            assertEquals(3209, resultsFuture.size());
+            assertEquals(resultsFuture.get("macbeth"), Long.valueOf(287));
+
+            resultsFuture = (Map<String, Long>) scriptingManager.runScript(
+                  "wordCountStream.js", new TaskContext().cache(cache3.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL))).get();
             assertEquals(3209, resultsFuture.size());
             assertEquals(resultsFuture.get("macbeth"), Long.valueOf(287));
          }
       });
    }
 
+   @Test(dataProvider = "cacheModeProvider")
+   public void testDistributedMapReduceStreamWithFlag2(final CacheMode cacheMode) throws IOException, ExecutionException, InterruptedException {
+      withCacheManagers(new MultiCacheManagerCallable(
+            TestCacheManagerFactory.createCacheManager(cacheMode, false),
+            TestCacheManagerFactory.createCacheManager(cacheMode, false),
+            TestCacheManagerFactory.createCacheManager(cacheMode, false)) {
+         public void call() throws Exception {
+            ScriptingManager scriptingManager = getScriptingManager(cms[0]);
+            Cache cache1 = cms[0].getCache();
+            Cache cache2 = cms[1].getCache();
+            Cache cache3 = cms[2].getCache();
 
-   @Test(enabled = false, dataProvider = "cacheModeProvider", description = "Disabled due to ISPN-6173.")
+            loadData(cache1, "/macbeth.txt");
+            loadScript(scriptingManager, "/wordCountStream_dist_localcache.js");
+            waitForRehashToComplete(cache1, cache2, cache3);
+
+            ArrayList<Map<String, Long>> resultsFuture = (ArrayList<Map<String, Long>>) scriptingManager.runScript(
+                  "wordCountStream_dist_localcache.js", new TaskContext().cache(cache1.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL))).get();
+
+            resultsFuture.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+
+//            assertEquals(3209, resultsFuture.stream().mapToInt(Map::size).sum());
+//            assertEquals(resultsFuture.stream().mapToLong(r -> r.get("macbeth")).sum(), 287L);
+         }
+      });
+   }
+
+
+   @Test(dataProvider = "cacheModeProvider")
    public void testDistributedMapReduceStreamLocalMode(final CacheMode cacheMode) throws IOException, ExecutionException, InterruptedException {
       withCacheManagers(new MultiCacheManagerCallable(TestCacheManagerFactory.createCacheManager(cacheMode, false),
               TestCacheManagerFactory.createCacheManager(cacheMode, false)) {

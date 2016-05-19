@@ -7,7 +7,8 @@ package org.infinispan.scripting.impl;
  * @since 7.2
  */
 public enum SystemBindings {
-   CACHE_MANAGER("cacheManager"), CACHE("cache"), SCRIPTING_MANAGER("scriptingManager"), MARSHALLER("marshaller");
+   CACHE_MANAGER("cacheManager"), CACHE("cache"), SCRIPTING_MANAGER("scriptingManager"), MARSHALLER("marshaller"),
+   CACHE_FLAGS("cacheFlags");
 
    private final String bindingName;
 

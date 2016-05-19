@@ -10,19 +10,25 @@ var SerializableSupplier = Java.extend(Java.type("org.infinispan.util.function.S
 var e = new SerializableFunction( {
    apply: function(object) {
       return object.getValue().toLowerCase().split(/[\W]+/)
-   }
+   },
+   writeObject: function(stream) {},
+   readObject: function(stream) {}
 })
 
 var f = new SerializableFunction({
    apply: function(f) {
       return Arrays.stream(f)
-   }
+   },
+   writeObject: function(stream) {},
+   readObject: function(stream) {}
 })
 
 var s = new SerializableSupplier({
    get: function() {
       return Collectors.groupingBy(Function.identity(), Collectors.counting())
-   }
+   },
+   writeObject: function(stream) {},
+   readObject: function(stream) {}
 })
 
     cache.entrySet().stream().map(e)

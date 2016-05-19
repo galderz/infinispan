@@ -1,6 +1,7 @@
 package org.infinispan.scripting.impl;
 
 import java.io.Serializable;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -9,6 +10,7 @@ import javax.script.Bindings;
 import javax.script.SimpleBindings;
 
 import org.infinispan.Cache;
+import org.infinispan.context.Flag;
 import org.infinispan.distexec.DistributedCallable;
 import org.infinispan.scripting.ScriptingManager;
 
@@ -21,12 +23,14 @@ import org.infinispan.scripting.ScriptingManager;
 class DistributedScript<T> implements DistributedCallable<Object, Object, T>, Serializable {
    private final ScriptMetadata metadata;
    private final Map<String, ?> ctxParams;
+   private final Optional<EnumSet<Flag>> flags;
    private transient ScriptingManagerImpl scriptManager;
    private transient Bindings bindings;
 
-   DistributedScript(ScriptMetadata metadata, Map<String, ?> ctxParams) {
+   DistributedScript(ScriptMetadata metadata, Map<String, ?> ctxParams, Optional<EnumSet<Flag>> flags) {
       this.metadata = metadata;
       this.ctxParams = ctxParams;
+      this.flags = flags;
    }
 
    @Override
@@ -41,9 +45,14 @@ class DistributedScript<T> implements DistributedCallable<Object, Object, T>, Se
       bindings.put("inputKeys", inputKeys);
       DataTypedCacheManager dataTypedCacheManager = new DataTypedCacheManager(metadata.dataType(), Optional.empty(), cache.getCacheManager());
       bindings.put("cacheManager", dataTypedCacheManager);
-      Cache<?, ?> c = cache.getCacheConfiguration().compatibility().enabled()
-            ? cache : new DataTypedCache<>(dataTypedCacheManager, cache);
+      Cache<?, ?> flaggedCache = flags.map(fs -> {
+         Flag[] flagsAsArray = new Flag[fs.size()];
+         return cache.getAdvancedCache().withFlags(fs.toArray(flagsAsArray));
+      }).orElse(cache.getAdvancedCache());
+      Cache<?, ?> c = flaggedCache.getCacheConfiguration().compatibility().enabled()
+            ? flaggedCache : new DataTypedCache<>(dataTypedCacheManager, flaggedCache);
       bindings.put("cache", c);
       ctxParams.entrySet().stream().forEach(e -> bindings.put(e.getKey(), e.getValue()));
    }
+
 }
