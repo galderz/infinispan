@@ -83,7 +83,7 @@ public class ClusteredScriptingTest extends AbstractInfinispanTest {
       });
    }
 
-   @Test(enabled = false, dataProvider = "cacheModeProvider", description = "Enable as soon as ISPN-6300 is fixed.")
+   @Test(dataProvider = "cacheModeProvider")
    public void testDistExecScriptWithCacheManagerAndParams(final CacheMode cacheMode) throws IOException, InterruptedException, ExecutionException {
       withCacheManagers(new MultiCacheManagerCallable(TestCacheManagerFactory.createCacheManager(cacheMode, false),
               TestCacheManagerFactory.createCacheManager(cacheMode, false)) {
@@ -149,7 +149,7 @@ public class ClusteredScriptingTest extends AbstractInfinispanTest {
    }
 
 
-   @Test(dataProvider = "cacheModeProvider")
+   @Test(enabled = false, dataProvider = "cacheModeProvider", description = "Disabled due to ISPN-6173.")
    public void testDistributedMapReduceStreamLocalMode(final CacheMode cacheMode) throws IOException, ExecutionException, InterruptedException {
       withCacheManagers(new MultiCacheManagerCallable(TestCacheManagerFactory.createCacheManager(cacheMode, false),
               TestCacheManagerFactory.createCacheManager(cacheMode, false)) {
@@ -173,7 +173,7 @@ public class ClusteredScriptingTest extends AbstractInfinispanTest {
       });
    }
 
-   @Test(dataProvider = "cacheModeProvider")
+   @Test(enabled = false, dataProvider = "cacheModeProvider", description = "Disabled due to ISPN-6173.")
    public void testDistributedMapReduceStreamLocalModeWithExecutors(final CacheMode cacheMode) throws IOException, ExecutionException, InterruptedException {
       withCacheManagers(new MultiCacheManagerCallable(TestCacheManagerFactory.createCacheManager(cacheMode, false),
               TestCacheManagerFactory.createCacheManager(cacheMode, false)) {
@@ -197,7 +197,7 @@ public class ClusteredScriptingTest extends AbstractInfinispanTest {
       });
    }
 
-   @Test(dataProvider = "cacheModeProvider")
+   @Test(enabled = false, dataProvider = "cacheModeProvider", description = "Disabled due to ISPN-6173.")
    public void testDistributedMapReduceStream(final CacheMode cacheMode) throws IOException, ExecutionException, InterruptedException {
       withCacheManagers(new MultiCacheManagerCallable(TestCacheManagerFactory.createCacheManager(cacheMode, false),
               TestCacheManagerFactory.createCacheManager(cacheMode, false)) {
