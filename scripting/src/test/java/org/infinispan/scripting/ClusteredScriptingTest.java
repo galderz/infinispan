@@ -20,6 +20,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.summingLong;
 import static org.infinispan.scripting.utils.ScriptingUtils.*;
 import static org.infinispan.test.TestingUtil.waitForRehashToComplete;
 import static org.infinispan.test.TestingUtil.withCacheManagers;
@@ -177,7 +179,22 @@ public class ClusteredScriptingTest extends AbstractInfinispanTest {
             ArrayList<Map<String, Long>> resultsFuture = (ArrayList<Map<String, Long>>) scriptingManager.runScript(
                   "wordCountStream_dist_localcache.js", new TaskContext().cache(cache1.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL))).get();
 
-            resultsFuture.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+            Map<String, Long> collected =
+                  resultsFuture.stream()
+                        .flatMap(m -> m.entrySet().stream())
+                        .collect(groupingBy(Map.Entry::getKey, summingLong(Map.Entry::getValue)));
+
+            switch (cacheMode) {
+               case REPL_SYNC:
+                  assertEquals(3209, collected.size());
+                  assertEquals(collected.get("macbeth"), Long.valueOf(287 * 3));
+                  break;
+               case DIST_SYNC:
+                  assertEquals(3209, collected.size());
+                  assertEquals(collected.get("macbeth"), Long.valueOf(287 * 2));
+            }
+
+//            resultsFuture.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
 //            assertEquals(3209, resultsFuture.stream().mapToInt(Map::size).sum());
 //            assertEquals(resultsFuture.stream().mapToLong(r -> r.get("macbeth")).sum(), 287L);
@@ -189,7 +206,7 @@ public class ClusteredScriptingTest extends AbstractInfinispanTest {
    @Test(dataProvider = "cacheModeProvider")
    public void testDistributedMapReduceStreamLocalMode(final CacheMode cacheMode) throws IOException, ExecutionException, InterruptedException {
       withCacheManagers(new MultiCacheManagerCallable(TestCacheManagerFactory.createCacheManager(cacheMode, false),
-              TestCacheManagerFactory.createCacheManager(cacheMode, false)) {
+            TestCacheManagerFactory.createCacheManager(cacheMode, false)) {
          public void call() throws Exception {
             ScriptingManager scriptingManager = getScriptingManager(cms[0]);
             Cache cache1 = cms[0].getCache();
@@ -200,7 +217,31 @@ public class ClusteredScriptingTest extends AbstractInfinispanTest {
             waitForRehashToComplete(cache1, cache2);
 
             ArrayList<Map<String, Long>> resultsFuture = (ArrayList<Map<String, Long>>) scriptingManager.runScript(
-                    "wordCountStream_serializable.js", new TaskContext().cache(cache1)).get();
+                  "wordCountStream_serializable.js", new TaskContext().cache(cache1)).get();
+            assertEquals(2, resultsFuture.size());
+            assertEquals(3209, resultsFuture.get(0).size());
+            assertEquals(3209, resultsFuture.get(1).size());
+            assertEquals(resultsFuture.get(0).get("macbeth"), Long.valueOf(287));
+            assertEquals(resultsFuture.get(1).get("macbeth"), Long.valueOf(287));
+         }
+      });
+   }
+
+   @Test(dataProvider = "cacheModeProvider")
+   public void testDistributedMapReduceStreamLocalModeExternalizable(final CacheMode cacheMode) throws IOException, ExecutionException, InterruptedException {
+      withCacheManagers(new MultiCacheManagerCallable(TestCacheManagerFactory.createCacheManager(cacheMode, false),
+            TestCacheManagerFactory.createCacheManager(cacheMode, false)) {
+         public void call() throws Exception {
+            ScriptingManager scriptingManager = getScriptingManager(cms[0]);
+            Cache cache1 = cms[0].getCache();
+            Cache cache2 = cms[1].getCache();
+
+            loadData(cache1, "/macbeth.txt");
+            loadScript(scriptingManager, "/wordCountStream_externalizable.js");
+            waitForRehashToComplete(cache1, cache2);
+
+            ArrayList<Map<String, Long>> resultsFuture = (ArrayList<Map<String, Long>>) scriptingManager.runScript(
+                  "wordCountStream_externalizable.js", new TaskContext().cache(cache1)).get();
             assertEquals(2, resultsFuture.size());
             assertEquals(3209, resultsFuture.get(0).size());
             assertEquals(3209, resultsFuture.get(1).size());
