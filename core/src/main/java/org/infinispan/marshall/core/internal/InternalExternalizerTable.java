@@ -58,6 +58,7 @@ import org.infinispan.filter.KeyFilterAsKeyValueFilter;
 import org.infinispan.functional.impl.EntryViews;
 import org.infinispan.functional.impl.MetaParams;
 import org.infinispan.functional.impl.MetaParamsInternalMetadata;
+import org.infinispan.marshall.core.Ids;
 import org.infinispan.marshall.core.MarshalledEntryImpl;
 import org.infinispan.marshall.core.MarshalledValue;
 import org.infinispan.marshall.exts.ArrayExternalizer;
@@ -285,7 +286,7 @@ final class InternalExternalizerTable {
    MarshallableType marshallable(Object o) {
       Class<?> clazz = o.getClass();
       int extId = internalExtIds.get(clazz, NOT_FOUND);
-      if (extId == 0) {
+      if (isPrimitiveId(extId)) {
          return MarshallableType.PRIMITIVE;
       } else if (extId != NOT_FOUND) {
          return MarshallableType.INTERNAL;
@@ -298,6 +299,10 @@ final class InternalExternalizerTable {
       }
    }
 
+   private boolean isPrimitiveId(int extId) {
+      return extId <= 18;
+   }
+
    private boolean hasExternalizer(Class<?> clazz, IdentityIntMap<Class<?>> col) {
       return col.get(clazz, NOT_FOUND) != NOT_FOUND;
    }
@@ -307,7 +312,27 @@ final class InternalExternalizerTable {
 
       int extId = 0;
 
-      extId = addInternalExternalizer(new PrimitiveExternalizer(enc), extId);
+      //extId = addInternalExternalizer(new PrimitiveExternalizer(enc), extId);
+
+      extId = addInternalExternalizer(new PrimitiveExternalizers.Null(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.String(enc), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.ByteArray(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.Boolean(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.Byte(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.Char(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.Double(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.Float(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.Int(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.Long(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.Short(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.BooleanArray(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.CharArray(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.DoubleArray(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.FloatArray(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.IntArray(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.LongArray(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.ShortArray(), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizers.ObjectArray(), extId);
 
       ReplicableCommandExternalizer ext = new ReplicableCommandExternalizer(cmdFactory, gcr);
       extId = addInternalExternalizer(ext, extId);
@@ -386,24 +411,6 @@ final class InternalExternalizerTable {
       extId = addInternalExternalizer(new NumericVersion.Externalizer(), extId);
       extId = addInternalExternalizer(new OptionalExternalizer(), extId);
       extId = addInternalExternalizer(new PersistentUUID.Externalizer(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.String(enc), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.ByteArray(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.Boolean(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.Byte(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.Char(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.Double(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.Float(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.Int(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.Long(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.Short(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.BooleanArray(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.CharArray(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.DoubleArray(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.FloatArray(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.IntArray(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.LongArray(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.ShortArray(), extId);
-      extId = addInternalExternalizer(new PrimitiveExternalizers.ObjectArray(), extId);
       extId = addInternalExternalizer(new PutOperation.Externalizer(), extId);
       extId = addInternalExternalizer(new QueueExternalizers(), extId);
       extId = addInternalExternalizer(new RecoveryAwareDldGlobalTransaction.Externalizer(), extId);
@@ -438,8 +445,10 @@ final class InternalExternalizerTable {
       internalExts[extId] = ext;
 
       Set<Class<?>> subTypes = ext.getTypeClasses();
-      for (Class<?> subType : subTypes)
-         internalExtIds.put(subType, extId);
+      if (subTypes != null) {
+         for (Class<?> subType : subTypes)
+            internalExtIds.put(subType, extId);
+      }
 
       return extId + 1;
    }

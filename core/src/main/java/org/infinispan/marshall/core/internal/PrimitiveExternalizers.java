@@ -19,6 +19,29 @@ public class PrimitiveExternalizers {
    static final int SMALL                       = 0x100;
    static final int MEDIUM                      = 0x10000;
 
+   public static final class Null extends AbstractExternalizer<Object> {
+
+      @Override
+      public Integer getId() {
+         return Ids.NULL;
+      }
+
+      @Override
+      public Set<Class<? extends Object>> getTypeClasses() {
+         return null;
+      }
+
+      @Override
+      public void writeObject(ObjectOutput out, Object obj) {
+      }
+
+      @Override
+      public Object readObject(ObjectInput in) {
+         return null;
+      }
+
+   }
+
    public static final class String extends AbstractExternalizer<java.lang.String> {
 
       // Assumes that whatever encoding passed can handle ObjectOutput/ObjectInput

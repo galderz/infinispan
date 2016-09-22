@@ -49,6 +49,7 @@ public interface Ids extends org.infinispan.commons.marshall.Ids {
    int INTEGER = 31;
    int LONG = 32;
    int SHORT = 33;
+   int NULL = 34;
 
    // others
    int GLOBAL_TRANSACTION = 38;
