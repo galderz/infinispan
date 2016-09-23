@@ -36,7 +36,7 @@ final class PrimitiveExternalizer implements AdvancedExternalizer<Object> {
    static final int LONG_ARRAY                  = 0x1D;
    static final int SHORT_ARRAY                 = 0x1E;
 
-   static final int OBJECT_ARRAY                 = 0x1F; // Object[]
+   static final int OBJECT_ARRAY                = 0x1F; // Object[]
 
    static final int ARRAY_EMPTY                 = 0x28; // zero elements
    static final int ARRAY_SMALL                 = 0x29; // <=0x100 elements

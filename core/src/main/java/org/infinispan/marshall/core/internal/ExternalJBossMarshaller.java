@@ -206,7 +206,6 @@ final class ExternalJBossMarshaller implements StreamingMarshaller {
                         Externalizer<Object> ext = externalizers.findWriteExternalizer(obj, m);
                         ext.writeObject(m, obj);
                      };
-                  case PRIMITIVE:
                   case NOT_MARSHALLABLE:
                      return null;
                   default:
@@ -216,7 +215,8 @@ final class ExternalJBossMarshaller implements StreamingMarshaller {
 
             @Override
             public Object readObject(Unmarshaller unmarshaller) throws IOException, ClassNotFoundException {
-               Externalizer<Object> ext = externalizers.findReadExternalizer(unmarshaller);
+               int type = unmarshaller.readUnsignedByte();
+               Externalizer<Object> ext = externalizers.findReadExternalizer(unmarshaller, type);
                return ext.readObject(unmarshaller);
             }
          });

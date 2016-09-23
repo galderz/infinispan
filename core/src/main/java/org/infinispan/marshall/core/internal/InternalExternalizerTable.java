@@ -206,31 +206,52 @@ final class InternalExternalizerTable {
    }
 
    <T> Externalizer<T> findWriteExternalizer(Object obj, ObjectOutput out) throws IOException {
-      Class<?> clazz = obj == null ? null : obj.getClass();
+      Class<?> clazz = obj.getClass();
       Externalizer<T> ext;
-      if (clazz == null) {
-         out.writeByte(InternalIds.NULL);
-         ext = (Externalizer<T>) internalExts[0];
+      int extId = internalExtIds.get(clazz, -1);
+      if (extId != -1) {
+         ext = internalExts[extId];
+         out.writeByte(InternalMarshaller.ID_INTERNAL);
+         out.writeByte(extId);
       } else {
-         int extId = internalExtIds.get(clazz, -1);
-         if (extId != -1) {
-            ext = internalExts[extId];
-            out.writeByte(InternalIds.INTERNAL);
-            out.writeByte(extId);
+         int foreignExtId = predefExtIds.get(clazz, -1);
+         if (foreignExtId != -1) {
+            ext = predefExts.get(foreignExtId);
+            out.writeByte(InternalMarshaller.ID_PREDEFINED);
+            UnsignedNumeric.writeUnsignedInt(out, foreignExtId);
+         } else if ((ext = findAnnotatedExternalizer(clazz)) != null) {
+            out.writeByte(InternalMarshaller.ID_ANNOTATED);
+            out.writeObject(ext.getClass());
          } else {
-            int foreignExtId = predefExtIds.get(clazz, -1);
-            if (foreignExtId != -1) {
-               ext = predefExts.get(foreignExtId);
-               out.writeByte(InternalIds.PREDEFINED);
-               UnsignedNumeric.writeUnsignedInt(out, foreignExtId);
-            } else if ((ext = findAnnotatedExternalizer(clazz)) != null) {
-               out.writeByte(InternalIds.ANNOTATED);
-               out.writeObject(ext.getClass());
-            } else {
-               out.writeByte(InternalIds.EXTERNAL);
-            }
+            out.writeByte(InternalMarshaller.ID_EXTERNAL);
          }
       }
+
+//      Class<?> clazz = obj == null ? null : obj.getClass();
+//      Externalizer<T> ext;
+//      if (clazz == null) {
+//         out.writeByte(InternalIds.NULL);
+//         ext = (Externalizer<T>) internalExts[0];
+//      } else {
+//         int extId = internalExtIds.get(clazz, -1);
+//         if (extId != -1) {
+//            ext = internalExts[extId];
+//            out.writeByte(InternalIds.INTERNAL);
+//            out.writeByte(extId);
+//         } else {
+//            int foreignExtId = predefExtIds.get(clazz, -1);
+//            if (foreignExtId != -1) {
+//               ext = predefExts.get(foreignExtId);
+//               out.writeByte(InternalIds.PREDEFINED);
+//               UnsignedNumeric.writeUnsignedInt(out, foreignExtId);
+//            } else if ((ext = findAnnotatedExternalizer(clazz)) != null) {
+//               out.writeByte(InternalIds.ANNOTATED);
+//               out.writeObject(ext.getClass());
+//            } else {
+//               out.writeByte(InternalIds.EXTERNAL);
+//            }
+//         }
+//      }
 
       return ext;
    }
@@ -253,24 +274,22 @@ final class InternalExternalizerTable {
       }
    }
 
-   <T> Externalizer<T> findReadExternalizer(ObjectInput in) {
+   <T> Externalizer<T> findReadExternalizer(ObjectInput in, int type) {
       try {
-         // Check if primitive or non-primitive
-         int type = in.readUnsignedByte();
+//         // Check if primitive or non-primitive
+//         int type = in.readUnsignedByte();
          switch (type) {
-            case InternalIds.NULL:
-               return internalExts[0];
-            case InternalIds.INTERNAL:
+            case InternalMarshaller.ID_INTERNAL:
                int extId = in.readUnsignedByte();
                return internalExts[extId];
-            case InternalIds.PREDEFINED:
+            case InternalMarshaller.ID_PREDEFINED:
                int predefinedId = UnsignedNumeric.readUnsignedInt(in);
                return predefExts.get(predefinedId);
-            case InternalIds.ANNOTATED:
+            case InternalMarshaller.ID_ANNOTATED:
                Class<? extends Externalizer<T>> clazz =
                      (Class<? extends Externalizer<T>>) in.readObject();
                return clazz.newInstance();
-            case InternalIds.EXTERNAL:
+            case InternalMarshaller.ID_EXTERNAL:
                return null;
             default:
                throw new CacheException("Unknown externalizer type: " + type);
@@ -285,9 +304,7 @@ final class InternalExternalizerTable {
    MarshallableType marshallable(Object o) {
       Class<?> clazz = o.getClass();
       int extId = internalExtIds.get(clazz, NOT_FOUND);
-      if (extId == 0) {
-         return MarshallableType.PRIMITIVE;
-      } else if (extId != NOT_FOUND) {
+      if (extId != NOT_FOUND) {
          return MarshallableType.INTERNAL;
       } else if (hasExternalizer(clazz, predefExtIds)) {
          return MarshallableType.PREDEFINED;
@@ -306,8 +323,6 @@ final class InternalExternalizerTable {
       StreamingMarshaller marshaller = gcr.getComponent(StreamingMarshaller.class);
 
       int extId = 0;
-
-      extId = addInternalExternalizer(new PrimitiveExternalizer(enc), extId);
 
       ReplicableCommandExternalizer ext = new ReplicableCommandExternalizer(cmdFactory, gcr);
       extId = addInternalExternalizer(ext, extId);
@@ -453,7 +468,7 @@ final class InternalExternalizerTable {
 
    enum MarshallableType {
 
-      PRIMITIVE,
+//      PRIMITIVE,
       INTERNAL,
       PREDEFINED,
       ANNOTATED,
