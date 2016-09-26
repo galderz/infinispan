@@ -1,5 +1,7 @@
 package org.infinispan.marshall.core.internal;
 
+import java.io.IOException;
+
 /**
  * Basic encoding/decoding of primitives
  */
@@ -104,15 +106,26 @@ final class BytesEncoding implements Encoding<BytesObjectOutput, BytesObjectInpu
       int len;
       if ((len = s.length()) == 0){
          encodeByte(0, out); // empty string
-      } else if (isAscii(s, len)) {
+      } else if (len <= 0x100) {
          encodeByte(1, out); // small ascii
          encodeByte(len, out);
-         int newcount = checkCapacity(len, out);
-         s.getBytes(0, len, out.bytes, out.pos);
-         out.pos = newcount;
+         encodeUTFBytes(s, out);
+      } else if (len <= 0x10000) {
+         encodeByte(2, out); // medium ascii
+         encodeShort(len, out);
+         encodeUTFBytes(s, out);
       } else {
-         encodeByte(2, out);  // large string
-         encodeStringUtf8(s, out);
+         encodeByte(3, out);  // large string
+         encodeInt(len, out);
+         encodeUTFBytes(s, out);
+      }
+   }
+
+   public void encodeUTFBytes(String s, BytesObjectOutput out) {
+      try {
+         UTFUtils.writeUTFBytes(out, s);
+      } catch (IOException e) {
+         throw new RuntimeException(e);
       }
    }
 
@@ -132,59 +145,7 @@ final class BytesEncoding implements Encoding<BytesObjectOutput, BytesObjectInpu
 
    @Override
    public void encodeStringUtf8(String s, BytesObjectOutput out) {
-      int startPos = skipIntSize(out);
-      int localPos = out.pos; /* avoid getfield opcode */
-      byte[] localBuf = out.bytes; /* avoid getfield opcode */
-
-      int strlen = s.length();
-      int c = 0;
-
-      int i=0;
-      for (i=0; i<strlen; i++) {
-         c = s.charAt(i);
-         if (!((c >= 0x0001) && (c <= 0x007F))) break;
-
-         if(localPos == out.bytes.length) {
-            out.pos = localPos;
-            checkCapacity(1, out);
-            localBuf = out.bytes;
-         }
-         localBuf[localPos++] = (byte) c;
-      }
-
-      for (;i < strlen; i++){
-         c = s.charAt(i);
-         if ((c >= 0x0001) && (c <= 0x007F)) {
-            if(localPos == out.bytes.length) {
-               out.pos = localPos;
-               checkCapacity(1, out);
-               localBuf = out.bytes;
-            }
-            localBuf[localPos++] = (byte) c;
-
-         } else if (c > 0x07FF) {
-            if(localPos+3 >= out.bytes.length) {
-               out.pos = localPos;
-               checkCapacity(3, out);
-               localBuf = out.bytes;
-            }
-
-            localBuf[localPos++] = (byte) (0xE0 | ((c >> 12) & 0x0F));
-            localBuf[localPos++] = (byte) (0x80 | ((c >>  6) & 0x3F));
-            localBuf[localPos++] = (byte) (0x80 | ((c >>  0) & 0x3F));
-         } else {
-            if(localPos + 2 >= out.bytes.length) {
-               out.pos = localPos;
-               checkCapacity(2, out);
-               localBuf = out.bytes;
-            }
-
-            localBuf[localPos++] = (byte) (0xC0 | ((c >>  6) & 0x1F));
-            localBuf[localPos++] = (byte) (0x80 | ((c >>  0) & 0x3F));
-         }
-      }
-      out.pos = localPos;
-      writeIntDirect(localPos - 4 - startPos, startPos, out);
+      encodeString(s, out);
    }
 
    @Override
@@ -303,19 +264,34 @@ final class BytesEncoding implements Encoding<BytesObjectOutput, BytesObjectInpu
    public String decodeString(BytesObjectInput in) {
       byte mark = decodeByte(in);
 
+      int len;
       switch(mark) {
          case 0:
             return ""; // empty string
          case 1:
             // small ascii
-            int size = decodeByte(in);
-            String str = new String(in.bytes, 0, in.pos, size);
-            in.pos += size;
-            return str;
+            try {
+               len = decodeByte(in) & 0xff;
+               return UTFUtils.readUTFBytes(in, len == 0 ? 0x100 : len);
+            } catch (IOException e) {
+               throw new RuntimeException(e);
+            }
          case 2:
-            // large string
-            return decodeStringUtf8(in);
+            // medium ascii
+            try {
+               len = decodeUnsignedShort(in);
+               return UTFUtils.readUTFBytes(in, len == 0 ? 0x10000 : len);
+            } catch (IOException e) {
+               throw new RuntimeException(e);
+            }
          case 3:
+            // large string
+            try {
+               len = decodeInt(in);
+               return UTFUtils.readUTFBytes(in, len);
+            } catch (IOException e) {
+               throw new RuntimeException(e);
+            }
          default:
             throw new RuntimeException("Unkwown marker(String). mark=" + mark);
       }
@@ -323,69 +299,7 @@ final class BytesEncoding implements Encoding<BytesObjectOutput, BytesObjectInpu
 
    @Override
    public String decodeStringUtf8(BytesObjectInput in) {
-      int utflen = decodeInt(in);
-
-      byte[] bytearr = in.bytes;
-      char[] chararr = new char[utflen];
-
-      utflen = in.pos + utflen;
-      int c, char2, char3;
-      int count = in.pos;
-      int chararr_count=0;
-
-      while (count < utflen) {
-         c = (int) bytearr[count] & 0xff;
-         if (c > 127) break;
-         count++;
-         chararr[chararr_count++]=(char)c;
-      }
-
-      while (count < utflen) {
-         c = (int) bytearr[count] & 0xff;
-         switch (c >> 4) {
-            case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7:
-                    /* 0xxxxxxx*/
-               count++;
-               chararr[chararr_count++]=(char)c;
-               break;
-            case 12: case 13:
-                    /* 110x xxxx   10xx xxxx*/
-               count += 2;
-               if (count > utflen)
-                  throw new RuntimeException(
-                        "malformed input: partial character at end");
-               char2 = (int) bytearr[count-1];
-               if ((char2 & 0xC0) != 0x80)
-                  throw new RuntimeException(
-                        "malformed input around byte " + count);
-               chararr[chararr_count++]=(char)(((c & 0x1F) << 6) |
-                                                     (char2 & 0x3F));
-               break;
-            case 14:
-                    /* 1110 xxxx  10xx xxxx  10xx xxxx */
-               count += 3;
-               if (count > utflen)
-                  throw new RuntimeException(
-                        "malformed input: partial character at end");
-               char2 = (int) bytearr[count-2];
-               char3 = (int) bytearr[count-1];
-               if (((char2 & 0xC0) != 0x80) || ((char3 & 0xC0) != 0x80))
-                  throw new RuntimeException(
-                        "malformed input around byte " + (count-1));
-               chararr[chararr_count++]=(char)(((c     & 0x0F) << 12) |
-                                                     ((char2 & 0x3F) << 6)  |
-                                                     ((char3 & 0x3F) << 0));
-               break;
-            default:
-                    /* 10xx xxxx,  1111 xxxx */
-               throw new RuntimeException(
-                     "malformed input around byte " + count);
-         }
-      }
-
-      in.pos = count;
-
-      return new String(chararr, 0, chararr_count);
+      return decodeString(in);
    }
 
    @Override
