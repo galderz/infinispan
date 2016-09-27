@@ -58,6 +58,7 @@ import org.infinispan.filter.KeyFilterAsKeyValueFilter;
 import org.infinispan.functional.impl.EntryViews;
 import org.infinispan.functional.impl.MetaParams;
 import org.infinispan.functional.impl.MetaParamsInternalMetadata;
+import org.infinispan.marshall.core.Ids;
 import org.infinispan.marshall.core.MarshalledEntryImpl;
 import org.infinispan.marshall.core.MarshalledValue;
 import org.infinispan.marshall.exts.ArrayExternalizer;
@@ -152,7 +153,7 @@ final class InternalExternalizerTable {
     * This collection is sized according to an approximation of number of
     * internal externalizers.
     */
-   final AdvancedExternalizer[] internalExts = new AdvancedExternalizer[128];
+   final AdvancedExternalizer[] internalExts = new AdvancedExternalizer[180];
 
    /**
     * Pairing between types marshalled by the externalizers predefined via
@@ -210,7 +211,7 @@ final class InternalExternalizerTable {
       Externalizer<T> ext;
       if (clazz == null) {
          out.writeByte(InternalIds.NULL);
-         ext = (Externalizer<T>) internalExts[0];
+         ext = (Externalizer<T>) internalExts[Ids.PRIMITIVES];
       } else {
          int extId = internalExtIds.get(clazz, -1);
          if (extId != -1) {
@@ -259,7 +260,7 @@ final class InternalExternalizerTable {
          int type = in.readUnsignedByte();
          switch (type) {
             case InternalIds.NULL:
-               return internalExts[0];
+               return internalExts[Ids.PRIMITIVES];
             case InternalIds.INTERNAL:
                int extId = in.readUnsignedByte();
                return internalExts[extId];
@@ -285,7 +286,7 @@ final class InternalExternalizerTable {
    MarshallableType marshallable(Object o) {
       Class<?> clazz = o.getClass();
       int extId = internalExtIds.get(clazz, NOT_FOUND);
-      if (extId == 0) {
+      if (extId == Ids.PRIMITIVES) {
          return MarshallableType.PRIMITIVE;
       } else if (extId != NOT_FOUND) {
          return MarshallableType.INTERNAL;
@@ -305,118 +306,116 @@ final class InternalExternalizerTable {
    private void loadInternalMarshallables() {
       StreamingMarshaller marshaller = gcr.getComponent(StreamingMarshaller.class);
 
-      int extId = 0;
-
-      extId = addInternalExternalizer(new PrimitiveExternalizer(enc), extId);
-
       ReplicableCommandExternalizer ext = new ReplicableCommandExternalizer(cmdFactory, gcr);
-      extId = addInternalExternalizer(ext, extId);
+      addInternalExternalizer(ext);
 
-      extId = addInternalExternalizer(new AcceptAllKeyValueFilter.Externalizer(), extId);
-      extId = addInternalExternalizer(new ArrayExternalizer(), extId);
-      extId = addInternalExternalizer(new AtomicHashMap.Externalizer(), extId);
-      extId = addInternalExternalizer(new AtomicHashMapDelta.Externalizer(), extId);
-      extId = addInternalExternalizer(new AvailabilityMode.Externalizer(), extId);
-      extId = addInternalExternalizer(new ByteBufferImpl.Externalizer(), extId);
-      extId = addInternalExternalizer(new CacheEventConverterAsConverter.Externalizer(), extId);
-      extId = addInternalExternalizer(new CacheEventFilterAsKeyValueFilter.Externalizer(), extId);
-      extId = addInternalExternalizer(new CacheEventFilterConverterAsKeyValueFilterConverter.Externalizer(), extId);
-      extId = addInternalExternalizer(new CacheEventTypeExternalizer(), extId);
-      extId = addInternalExternalizer(new CacheFilters.CacheFiltersExternalizer(), extId);
-      extId = addInternalExternalizer(new CacheJoinInfo.Externalizer(), extId);
-      extId = addInternalExternalizer(new CacheNotFoundResponse.Externalizer(), extId);
-      extId = addInternalExternalizer(new CacheRpcCommandExternalizer(gcr, ext), extId);
-      extId = addInternalExternalizer(new CacheStatusResponse.Externalizer(), extId);
-      extId = addInternalExternalizer(new CacheTopology.Externalizer(), extId);
-      extId = addInternalExternalizer(new ClearOperation.Externalizer(), extId);
-      extId = addInternalExternalizer(new ClusterEvent.Externalizer(), extId);
-      extId = addInternalExternalizer(new ClusterEventCallable.Externalizer(), extId);
-      extId = addInternalExternalizer(new ClusterListenerRemoveCallable.Externalizer(), extId);
-      extId = addInternalExternalizer(new ClusterListenerReplicateCallable.Externalizer(), extId);
-      extId = addInternalExternalizer(new CollectionKeyFilter.Externalizer(), extId);
-      extId = addInternalExternalizer(new DefaultConsistentHash.Externalizer(), extId);
-      extId = addInternalExternalizer(new DeltaCompositeKey.DeltaCompositeKeyExternalizer(), extId);
-      extId = addInternalExternalizer(new DldGlobalTransaction.Externalizer(), extId);
-      extId = addInternalExternalizer(new DoubleSummaryStatisticsExternalizer(), extId);
-      extId = addInternalExternalizer(new EmbeddedMetadata.Externalizer(), extId);
-      extId = addInternalExternalizer(new EntryViews.ReadWriteSnapshotViewExternalizer(), extId);
-      extId = addInternalExternalizer(new EnumSetExternalizer(), extId);
-      extId = addInternalExternalizer(new EquivalenceExternalizer(), extId);
-      extId = addInternalExternalizer(new ExceptionResponse.Externalizer(), extId);
-      extId = addInternalExternalizer(new Flag.Externalizer(), extId);
-      extId = addInternalExternalizer(new GlobalTransaction.Externalizer(), extId);
-      extId = addInternalExternalizer(new KeyFilterAsCacheEventFilter.Externalizer(), extId);
-      extId = addInternalExternalizer(new KeyFilterAsKeyValueFilter.Externalizer(), extId);
-      extId = addInternalExternalizer(new KeyValueFilterAsCacheEventFilter.Externalizer(), extId);
-      extId = addInternalExternalizer(new ImmortalCacheEntry.Externalizer(), extId);
-      extId = addInternalExternalizer(new ImmortalCacheValue.Externalizer(), extId);
-      extId = addInternalExternalizer(new Immutables.ImmutableMapWrapperExternalizer(), extId);
-      extId = addInternalExternalizer(new Immutables.ImmutableSetWrapperExternalizer(), extId);
-      extId = addInternalExternalizer(new InDoubtTxInfoImpl.Externalizer(), extId);
-      extId = addInternalExternalizer(new IntermediateOperationExternalizer(), extId);
-      extId = addInternalExternalizer(new InternalMetadataImpl.Externalizer(), extId);
-      extId = addInternalExternalizer(new IntSummaryStatisticsExternalizer(), extId);
-      extId = addInternalExternalizer(new JGroupsAddress.Externalizer(), extId);
-      extId = addInternalExternalizer(new JGroupsTopologyAwareAddress.Externalizer(), extId);
-      extId = addInternalExternalizer(new ListExternalizer(), extId);
-      extId = addInternalExternalizer(new LongSummaryStatisticsExternalizer(), extId);
-      extId = addInternalExternalizer(new KeyValuePair.Externalizer(), extId);
-      extId = addInternalExternalizer(new ManagerStatusResponse.Externalizer(), extId);
-      extId = addInternalExternalizer(new MapExternalizer(), extId);
-      extId = addInternalExternalizer(new MarshallableFunctionExternalizers.ConstantLambdaExternalizer(), extId);
-      extId = addInternalExternalizer(new MarshallableFunctionExternalizers.LambdaWithMetasExternalizer(), extId);
-      extId = addInternalExternalizer(new MarshallableFunctionExternalizers.SetValueIfEqualsReturnBooleanExternalizer(), extId);
-      extId = addInternalExternalizer(new MarshalledEntryImpl.Externalizer(marshaller), extId);
-      extId = addInternalExternalizer(new MarshalledValue.Externalizer(marshaller), extId);
-      extId = addInternalExternalizer(new MetadataImmortalCacheEntry.Externalizer(), extId);
-      extId = addInternalExternalizer(new MetadataImmortalCacheValue.Externalizer(), extId);
-      extId = addInternalExternalizer(new MetadataMortalCacheEntry.Externalizer(), extId);
-      extId = addInternalExternalizer(new MetadataMortalCacheValue.Externalizer(), extId);
-      extId = addInternalExternalizer(new MetadataTransientMortalCacheEntry.Externalizer(), extId);
-      extId = addInternalExternalizer(new MetaParamExternalizers.LifespanExternalizer(), extId);
-      extId = addInternalExternalizer(new MetaParamExternalizers.EntryVersionParamExternalizer(), extId);
-      extId = addInternalExternalizer(new MetaParamExternalizers.NumericEntryVersionExternalizer(), extId);
-      extId = addInternalExternalizer(new MetaParams.Externalizer(), extId);
-      extId = addInternalExternalizer(new MetaParamsInternalMetadata.Externalizer(), extId);
-      extId = addInternalExternalizer(new MIMECacheEntry.Externalizer(), extId); // new
-      extId = addInternalExternalizer(new MortalCacheEntry.Externalizer(), extId);
-      extId = addInternalExternalizer(new MortalCacheValue.Externalizer(), extId);
-      extId = addInternalExternalizer(new MultiClusterEventCallable.Externalizer(), extId);
-      extId = addInternalExternalizer(new MurmurHash3.Externalizer(), extId);
-      extId = addInternalExternalizer(new NumericVersion.Externalizer(), extId);
-      extId = addInternalExternalizer(new OptionalExternalizer(), extId);
-      extId = addInternalExternalizer(new PersistentUUID.Externalizer(), extId);
-      extId = addInternalExternalizer(new PutOperation.Externalizer(), extId);
-      extId = addInternalExternalizer(new QueueExternalizers(), extId);
-      extId = addInternalExternalizer(new RecoveryAwareDldGlobalTransaction.Externalizer(), extId);
-      extId = addInternalExternalizer(new RecoveryAwareGlobalTransaction.Externalizer(), extId);
-      extId = addInternalExternalizer(new RemoveOperation.Externalizer(), extId);
-      extId = addInternalExternalizer(new ReplicatedConsistentHash.Externalizer(), extId);
-      extId = addInternalExternalizer(new SerializableXid.XidExternalizer(), extId);
-      extId = addInternalExternalizer(new SetExternalizer(), extId);
-      extId = addInternalExternalizer(new SimpleClusteredVersion.Externalizer(), extId);
-      extId = addInternalExternalizer(new SingletonListExternalizer(), extId);
-      extId = addInternalExternalizer(new StateChunk.Externalizer(), extId);
-      extId = addInternalExternalizer(new StreamMarshalling.StreamMarshallingExternalizer(), extId);
-      extId = addInternalExternalizer(new SuccessfulResponse.Externalizer(), extId);
-      extId = addInternalExternalizer(new SyncConsistentHashFactory.Externalizer(), extId);
-      extId = addInternalExternalizer(new SyncReplicatedConsistentHashFactory.Externalizer(), extId);
-      extId = addInternalExternalizer(new TerminalOperationExternalizer(), extId);
-      extId = addInternalExternalizer(new TopologyAwareSyncConsistentHashFactory.Externalizer(), extId);
-      extId = addInternalExternalizer(new TransactionInfo.Externalizer(), extId);
-      extId = addInternalExternalizer(new TransientCacheEntry.Externalizer(), extId);
-      extId = addInternalExternalizer(new TransientCacheValue.Externalizer(), extId);
-      extId = addInternalExternalizer(new TransientMortalCacheEntry.Externalizer(), extId);
-      extId = addInternalExternalizer(new TransientMortalCacheValue.Externalizer(), extId);
-      extId = addInternalExternalizer(new UnsuccessfulResponse.Externalizer(), extId);
-      extId = addInternalExternalizer(new UnsureResponse.Externalizer(), extId);
-      extId = addInternalExternalizer(new UuidExternalizer(), extId);
-      extId = addInternalExternalizer(new XSiteState.XSiteStateExternalizer(), extId);
+      addInternalExternalizer(new AcceptAllKeyValueFilter.Externalizer());
+      addInternalExternalizer(new ArrayExternalizer());
+      addInternalExternalizer(new AtomicHashMap.Externalizer());
+      addInternalExternalizer(new AtomicHashMapDelta.Externalizer());
+      addInternalExternalizer(new AvailabilityMode.Externalizer());
+      addInternalExternalizer(new ByteBufferImpl.Externalizer());
+      addInternalExternalizer(new CacheEventConverterAsConverter.Externalizer());
+      addInternalExternalizer(new CacheEventFilterAsKeyValueFilter.Externalizer());
+      addInternalExternalizer(new CacheEventFilterConverterAsKeyValueFilterConverter.Externalizer());
+      addInternalExternalizer(new CacheEventTypeExternalizer());
+      addInternalExternalizer(new CacheFilters.CacheFiltersExternalizer());
+      addInternalExternalizer(new CacheJoinInfo.Externalizer());
+      addInternalExternalizer(new CacheNotFoundResponse.Externalizer());
+      addInternalExternalizer(new CacheRpcCommandExternalizer(gcr, ext));
+      addInternalExternalizer(new CacheStatusResponse.Externalizer());
+      addInternalExternalizer(new CacheTopology.Externalizer());
+      addInternalExternalizer(new ClearOperation.Externalizer());
+      addInternalExternalizer(new ClusterEvent.Externalizer());
+      addInternalExternalizer(new ClusterEventCallable.Externalizer());
+      addInternalExternalizer(new ClusterListenerRemoveCallable.Externalizer());
+      addInternalExternalizer(new ClusterListenerReplicateCallable.Externalizer());
+      addInternalExternalizer(new CollectionKeyFilter.Externalizer());
+      addInternalExternalizer(new DefaultConsistentHash.Externalizer());
+      addInternalExternalizer(new DeltaCompositeKey.DeltaCompositeKeyExternalizer());
+      addInternalExternalizer(new DldGlobalTransaction.Externalizer());
+      addInternalExternalizer(new DoubleSummaryStatisticsExternalizer());
+      addInternalExternalizer(new EmbeddedMetadata.Externalizer());
+      addInternalExternalizer(new EntryViews.ReadWriteSnapshotViewExternalizer());
+      addInternalExternalizer(new EnumSetExternalizer());
+      addInternalExternalizer(new EquivalenceExternalizer());
+      addInternalExternalizer(new ExceptionResponse.Externalizer());
+      addInternalExternalizer(new Flag.Externalizer());
+      addInternalExternalizer(new GlobalTransaction.Externalizer());
+      addInternalExternalizer(new KeyFilterAsCacheEventFilter.Externalizer());
+      addInternalExternalizer(new KeyFilterAsKeyValueFilter.Externalizer());
+      addInternalExternalizer(new KeyValueFilterAsCacheEventFilter.Externalizer());
+      addInternalExternalizer(new ImmortalCacheEntry.Externalizer());
+      addInternalExternalizer(new ImmortalCacheValue.Externalizer());
+      addInternalExternalizer(new Immutables.ImmutableMapWrapperExternalizer());
+      addInternalExternalizer(new Immutables.ImmutableSetWrapperExternalizer());
+      addInternalExternalizer(new InDoubtTxInfoImpl.Externalizer());
+      addInternalExternalizer(new IntermediateOperationExternalizer());
+      addInternalExternalizer(new InternalMetadataImpl.Externalizer());
+      addInternalExternalizer(new IntSummaryStatisticsExternalizer());
+      addInternalExternalizer(new JGroupsAddress.Externalizer());
+      addInternalExternalizer(new JGroupsTopologyAwareAddress.Externalizer());
+      addInternalExternalizer(new ListExternalizer());
+      addInternalExternalizer(new LongSummaryStatisticsExternalizer());
+      addInternalExternalizer(new KeyValuePair.Externalizer());
+      addInternalExternalizer(new ManagerStatusResponse.Externalizer());
+      addInternalExternalizer(new MapExternalizer());
+      addInternalExternalizer(new MarshallableFunctionExternalizers.ConstantLambdaExternalizer());
+      addInternalExternalizer(new MarshallableFunctionExternalizers.LambdaWithMetasExternalizer());
+      addInternalExternalizer(new MarshallableFunctionExternalizers.SetValueIfEqualsReturnBooleanExternalizer());
+      addInternalExternalizer(new MarshalledEntryImpl.Externalizer(marshaller));
+      addInternalExternalizer(new MarshalledValue.Externalizer(marshaller));
+      addInternalExternalizer(new MetadataImmortalCacheEntry.Externalizer());
+      addInternalExternalizer(new MetadataImmortalCacheValue.Externalizer());
+      addInternalExternalizer(new MetadataMortalCacheEntry.Externalizer());
+      addInternalExternalizer(new MetadataMortalCacheValue.Externalizer());
+      addInternalExternalizer(new MetadataTransientMortalCacheEntry.Externalizer());
+      addInternalExternalizer(new MetaParamExternalizers.LifespanExternalizer());
+      addInternalExternalizer(new MetaParamExternalizers.EntryVersionParamExternalizer());
+      addInternalExternalizer(new MetaParamExternalizers.NumericEntryVersionExternalizer());
+      addInternalExternalizer(new MetaParams.Externalizer());
+      addInternalExternalizer(new MetaParamsInternalMetadata.Externalizer());
+      addInternalExternalizer(new MIMECacheEntry.Externalizer()); // new
+      addInternalExternalizer(new MortalCacheEntry.Externalizer());
+      addInternalExternalizer(new MortalCacheValue.Externalizer());
+      addInternalExternalizer(new MultiClusterEventCallable.Externalizer());
+      addInternalExternalizer(new MurmurHash3.Externalizer());
+      addInternalExternalizer(new NumericVersion.Externalizer());
+      addInternalExternalizer(new OptionalExternalizer());
+      addInternalExternalizer(new PersistentUUID.Externalizer());
+      addInternalExternalizer(new PrimitiveExternalizer(enc));
+      addInternalExternalizer(new PutOperation.Externalizer());
+      addInternalExternalizer(new QueueExternalizers());
+      addInternalExternalizer(new RecoveryAwareDldGlobalTransaction.Externalizer());
+      addInternalExternalizer(new RecoveryAwareGlobalTransaction.Externalizer());
+      addInternalExternalizer(new RemoveOperation.Externalizer());
+      addInternalExternalizer(new ReplicatedConsistentHash.Externalizer());
+      addInternalExternalizer(new SerializableXid.XidExternalizer());
+      addInternalExternalizer(new SetExternalizer());
+      addInternalExternalizer(new SimpleClusteredVersion.Externalizer());
+      addInternalExternalizer(new SingletonListExternalizer());
+      addInternalExternalizer(new StateChunk.Externalizer());
+      addInternalExternalizer(new StreamMarshalling.StreamMarshallingExternalizer());
+      addInternalExternalizer(new SuccessfulResponse.Externalizer());
+      addInternalExternalizer(new SyncConsistentHashFactory.Externalizer());
+      addInternalExternalizer(new SyncReplicatedConsistentHashFactory.Externalizer());
+      addInternalExternalizer(new TerminalOperationExternalizer());
+      addInternalExternalizer(new TopologyAwareSyncConsistentHashFactory.Externalizer());
+      addInternalExternalizer(new TransactionInfo.Externalizer());
+      addInternalExternalizer(new TransientCacheEntry.Externalizer());
+      addInternalExternalizer(new TransientCacheValue.Externalizer());
+      addInternalExternalizer(new TransientMortalCacheEntry.Externalizer());
+      addInternalExternalizer(new TransientMortalCacheValue.Externalizer());
+      addInternalExternalizer(new UnsuccessfulResponse.Externalizer());
+      addInternalExternalizer(new UnsureResponse.Externalizer());
+      addInternalExternalizer(new UuidExternalizer());
+      addInternalExternalizer(new XSiteState.XSiteStateExternalizer());
 
       // ADD NEW INTERNAL EXTERNALIZERS HERE!
    }
 
-   private int addInternalExternalizer(AdvancedExternalizer ext, int extId) {
+   private int addInternalExternalizer(AdvancedExternalizer ext) {
+      int extId = ext.getId();
       internalExts[extId] = ext;
 
       Set<Class<?>> subTypes = ext.getTypeClasses();

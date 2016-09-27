@@ -5,6 +5,7 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.util.Set;
 
+import org.infinispan.commons.marshall.AdvancedExternalizer;
 import org.infinispan.commons.marshall.InstanceReusingAdvancedExternalizer;
 import org.infinispan.commons.util.Util;
 import org.infinispan.marshall.core.Ids;
@@ -16,7 +17,9 @@ import org.infinispan.remoting.transport.Address;
  * @author Manik Surtani
  * @since 4.0
  */
-public class JGroupsAddress implements Address {
+public class JGroupsAddress implements Address, AdvancedExternalizer<JGroupsAddress> {
+
+   static final AdvancedExternalizer<JGroupsAddress> EXT = new JGroupsAddress.Externalizer();
 
    protected final org.jgroups.Address address;
    private final int hashCode;
@@ -56,6 +59,26 @@ public class JGroupsAddress implements Address {
    public int compareTo(Address o) {
       JGroupsAddress oa = (JGroupsAddress) o;
       return address.compareTo(oa.address);
+   }
+
+   @Override
+   public Set<Class<? extends JGroupsAddress>> getTypeClasses() {
+      return null; // Unused
+   }
+
+   @Override
+   public Integer getId() {
+      return Ids.JGROUPS_ADDRESS;
+   }
+
+   @Override
+   public void writeObject(ObjectOutput output, JGroupsAddress object) throws IOException {
+      EXT.writeObject(output, object);
+   }
+
+   @Override
+   public JGroupsAddress readObject(ObjectInput input) throws IOException, ClassNotFoundException {
+      return null;  // JGroupsAddress.Externalizer
    }
 
    public static final class Externalizer extends InstanceReusingAdvancedExternalizer<JGroupsAddress> {

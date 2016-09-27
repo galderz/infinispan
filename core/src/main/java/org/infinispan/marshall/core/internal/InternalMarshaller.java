@@ -6,6 +6,7 @@ import org.infinispan.commons.io.ByteBufferImpl;
 import org.infinispan.commons.io.ExposedByteArrayOutputStream;
 import org.infinispan.commons.logging.Log;
 import org.infinispan.commons.logging.LogFactory;
+import org.infinispan.commons.marshall.AdvancedExternalizer;
 import org.infinispan.commons.marshall.BufferSizePredictor;
 import org.infinispan.commons.marshall.Externalizer;
 import org.infinispan.commons.marshall.MarshallableTypeHints;
@@ -68,13 +69,26 @@ public final class InternalMarshaller implements StreamingMarshaller {
 
    private BytesObjectOutput writeObjectOutput(Object obj, int estimatedSize) throws IOException {
       BytesObjectOutput out = new BytesObjectOutput(estimatedSize, this);
-      Externalizer<Object> ext = externalizers.findWriteExternalizer(obj, out);
-      if (ext != null)
-         ext.writeObject(out, obj);
-      else
-         external.objectToObjectStream(obj, out);
+      return writeNullableObject(obj, out);
+   }
 
-      return out;
+   BytesObjectOutput writeNullableObject(Object obj, BytesObjectOutput out) throws IOException {
+      // TODO: Decide on order of what comes first: externalizers or primitives
+      if (obj instanceof AdvancedExternalizer) {
+         out.writeByte(InternalIds.INTERNAL);
+         AdvancedExternalizer advExt = (AdvancedExternalizer) (obj);
+         out.writeByte(advExt.getId());
+         advExt.writeObject(out, obj);
+         return out;
+      } else {
+         Externalizer<Object> ext = externalizers.findWriteExternalizer(obj, out);
+         if (ext != null)
+            ext.writeObject(out, obj);
+         else
+            external.objectToObjectStream(obj, out);
+
+         return out;
+      }
    }
 
    @Override
@@ -84,6 +98,10 @@ public final class InternalMarshaller implements StreamingMarshaller {
    }
 
    private Object objectFromObjectInput(ObjectInput in) throws IOException, ClassNotFoundException {
+      return readNullableObject(in);
+   }
+
+   Object readNullableObject(ObjectInput in) throws IOException, ClassNotFoundException {
       Externalizer<Object> ext = externalizers.findReadExternalizer(in);
       if (ext != null)
          return ext.readObject(in);

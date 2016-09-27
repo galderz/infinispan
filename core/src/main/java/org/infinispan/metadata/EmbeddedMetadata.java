@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.infinispan.commons.marshall.AbstractExternalizer;
+import org.infinispan.commons.marshall.AdvancedExternalizer;
 import org.infinispan.commons.util.Util;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.marshall.core.Ids;
@@ -18,7 +19,7 @@ import org.jboss.marshalling.util.IdentityIntMap;
  * @author Galder Zamarreño
  * @since 5.3
  */
-public class EmbeddedMetadata implements Metadata {
+public class EmbeddedMetadata implements Metadata, AdvancedExternalizer<EmbeddedMetadata> {
 
    final EntryVersion version;
 
@@ -69,6 +70,27 @@ public class EmbeddedMetadata implements Metadata {
       return "EmbeddedMetadata{" +
             "version=" + version +
             '}';
+   }
+
+   @Override
+   public Set<Class<? extends EmbeddedMetadata>> getTypeClasses() {
+      return null;  // Unused
+   }
+
+   @Override
+   public Integer getId() {
+      return Ids.EMBEDDED_METADATA;
+   }
+
+   @Override
+   public void writeObject(ObjectOutput out, EmbeddedMetadata obj) throws IOException {
+      out.writeByte(0);
+      out.writeObject(version);
+   }
+
+   @Override
+   public EmbeddedMetadata readObject(ObjectInput input) throws IOException, ClassNotFoundException {
+      return null;  // EmbeddedMetadata.Externalizer resolves object
    }
 
    public static class Builder implements Metadata.Builder {
@@ -210,6 +232,14 @@ public class EmbeddedMetadata implements Metadata {
                ", version=" + version +
                '}';
       }
+
+      @Override
+      public void writeObject(ObjectOutput out, EmbeddedMetadata obj) throws IOException {
+         out.writeByte(1);
+         out.writeLong(lifespan);
+         out.writeLong(maxIdle);
+         out.writeObject(version);
+      }
    }
 
    private static abstract class AbstractEmbeddedTimeoutMetadata extends EmbeddedMetadata {
@@ -269,6 +299,12 @@ public class EmbeddedMetadata implements Metadata {
                '}';
       }
 
+      @Override
+      public void writeObject(ObjectOutput out, EmbeddedMetadata obj) throws IOException {
+         out.writeByte(2);
+         out.writeLong(timeout);
+         out.writeObject(version);
+      }
    }
 
    private static class EmbeddedMaxIdleExpirableMetadata extends AbstractEmbeddedTimeoutMetadata {
@@ -296,6 +332,12 @@ public class EmbeddedMetadata implements Metadata {
                '}';
       }
 
+      @Override
+      public void writeObject(ObjectOutput out, EmbeddedMetadata obj) throws IOException {
+         out.writeByte(3);
+         out.writeLong(timeout);
+         out.writeObject(version);
+      }
    }
 
    public static class Externalizer extends AbstractExternalizer<EmbeddedMetadata> {

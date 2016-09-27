@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.infinispan.commons.marshall.AdvancedExternalizer;
+import org.infinispan.marshall.core.Ids;
 import org.jboss.marshalling.util.IdentityIntMap;
 
 final class PrimitiveExternalizer implements AdvancedExternalizer<Object> {
@@ -677,7 +678,7 @@ final class PrimitiveExternalizer implements AdvancedExternalizer<Object> {
 
    @Override
    public Integer getId() {
-      return null; // Internal, id defined in internal externalizer table
+      return Ids.PRIMITIVES;
    }
 
 }

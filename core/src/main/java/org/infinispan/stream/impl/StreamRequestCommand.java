@@ -43,9 +43,9 @@ public class StreamRequestCommand<K> extends BaseRpcCommand implements TopologyA
       this.topologyId = topologyId;
    }
 
-   public Object getId() {
-      return id;
-   }
+//   public Object getId() {
+//      return id;
+//   }
 
    public enum Type {
       TERMINAL,

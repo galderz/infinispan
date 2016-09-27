@@ -46,6 +46,8 @@ public interface Ids extends org.infinispan.commons.marshall.Ids {
    // 42 no longer in use
    int DEADLOCK_DETECTING_GLOBAL_TRANSACTION = 43;
 
+   int PRIMITIVES = 44;
+
    // 44 and 45 no longer in use, used to belong to tree module
    int ATOMIC_HASH_MAP_DELTA = 46;
    int ATOMIC_PUT_OPERATION = 47;

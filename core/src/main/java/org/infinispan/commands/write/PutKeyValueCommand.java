@@ -5,19 +5,24 @@ import static org.infinispan.commons.util.Util.toStr;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
+import java.util.Set;
 
 import org.infinispan.atomic.CopyableDeltaAware;
 import org.infinispan.atomic.Delta;
 import org.infinispan.atomic.DeltaAware;
 import org.infinispan.commands.CommandInvocationId;
 import org.infinispan.commands.MetadataAwareCommand;
+import org.infinispan.commands.TopologyAffectedCommand;
 import org.infinispan.commands.Visitor;
 import org.infinispan.commons.equivalence.Equivalence;
+import org.infinispan.commons.marshall.AdvancedExternalizer;
 import org.infinispan.commons.marshall.MarshallUtil;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.container.entries.MVCCEntry;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
+import org.infinispan.marshall.DeltaAwareObjectOutput;
+import org.infinispan.marshall.core.Ids;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.metadata.Metadatas;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
@@ -28,7 +33,7 @@ import org.infinispan.notifications.cachelistener.CacheNotifier;
  * @author Mircea.Markus@jboss.com
  * @since 4.0
  */
-public class PutKeyValueCommand extends AbstractDataWriteCommand implements MetadataAwareCommand {
+public class PutKeyValueCommand extends AbstractDataWriteCommand implements MetadataAwareCommand, AdvancedExternalizer<PutKeyValueCommand> {
 
    public static final byte COMMAND_ID = 8;
 
@@ -267,5 +272,31 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand implements Meta
       e.setChanged(true);
       // Return the expected value when retrying a putIfAbsent command (i.e. null)
       return valueMatcher != ValueMatcher.MATCH_EXPECTED_OR_NEW ? o : null;
+   }
+
+   @Override
+   public Set<Class<? extends PutKeyValueCommand>> getTypeClasses() {
+      return null;
+   }
+
+   @Override
+   public Integer getId() {
+      return Ids.REPLICABLE_COMMAND;
+   }
+
+   @Override
+   public void writeObject(ObjectOutput output, PutKeyValueCommand object) throws IOException {
+      output.writeByte(0);
+      output.writeShort(COMMAND_ID);
+      DeltaAwareObjectOutput deltaAwareObjectOutput = output instanceof DeltaAwareObjectOutput ?
+            (DeltaAwareObjectOutput) output :
+            new DeltaAwareObjectOutput(output);
+      writeTo(deltaAwareObjectOutput);
+      output.writeInt(getTopologyId());
+   }
+
+   @Override
+   public PutKeyValueCommand readObject(ObjectInput input) throws IOException, ClassNotFoundException {
+      return null;
    }
 }
