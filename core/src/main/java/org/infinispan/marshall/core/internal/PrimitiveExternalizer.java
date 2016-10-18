@@ -48,12 +48,7 @@ final class PrimitiveExternalizer implements AdvancedExternalizer<Object> {
    final IdentityIntMap<Class<?>> subIds = new IdentityIntMap<>(16);
    final Set<Class<?>> subTypes = new HashSet<>();
 
-   // Assumes that whatever encoding passed can handle ObjectOutput/ObjectInput
-   // (that might change when adding support for NIO ByteBuffers)
-   final Encoding enc;
-
-   public PrimitiveExternalizer(Encoding enc) {
-      this.enc = enc;
+   public PrimitiveExternalizer() {
       addSubType(String.class, STRING);
       addSubType(byte[].class, BYTE_ARRAY);
 
@@ -156,9 +151,10 @@ final class PrimitiveExternalizer implements AdvancedExternalizer<Object> {
    }
 
    @SuppressWarnings("unchecked")
-   private void writeString(ObjectOutput out, String obj) {
+   private void writeString(ObjectOutput out, String obj) throws IOException {
       // Instead of out.writeUTF() to be able to write smaller String payloads
-      enc.encodeString(obj, out);
+      // Implementation underneath takes care of sending it as small as possible
+      out.writeBytes(obj);
    }
 
    private void writeByteArray(byte[] obj, ObjectOutput out) throws IOException {
@@ -407,7 +403,7 @@ final class PrimitiveExternalizer implements AdvancedExternalizer<Object> {
 
    @SuppressWarnings("unchecked")
    private String readString(ObjectInput in) {
-      return enc.decodeString(in); // Counterpart to Encoding.encodeString()
+      return ((BytesObjectInput) in).readString();
    }
 
    private byte[] readByteArray(ObjectInput in) throws IOException {

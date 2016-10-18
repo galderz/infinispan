@@ -1,41 +1,48 @@
 package org.infinispan.marshall.core.internal;
 
-import org.infinispan.commons.marshall.Externalizer;
-
 import java.io.IOException;
 import java.io.ObjectInput;
 
-final class BytesObjectInput implements ObjectInput, PositionalBuffer.Input {
+import org.infinispan.commons.marshall.Externalizer;
+import org.infinispan.commons.marshall.StreamingMarshaller;
+
+public final class BytesObjectInput implements ObjectInput, PositionalBuffer.Input {
 
    final byte bytes[];
-   final InternalMarshaller internal;
+
+   final InternalExternalizerTable extTable;
+   final StreamingMarshaller external;
 
    int pos;
    int offset; // needed for external JBoss Marshalling, to be able to rewind correctly when the bytes are prepended :(
 
-   private BytesObjectInput(byte[] bytes, int offset, InternalMarshaller internal) {
+   private BytesObjectInput(byte[] bytes, int offset,
+         InternalExternalizerTable extTable, StreamingMarshaller external) {
       this.bytes = bytes;
       this.pos = offset;
       this.offset = offset;
-      this.internal = internal;
+      this.extTable = extTable;
+      this.external = external;
    }
 
-   static BytesObjectInput from(byte[] bytes, InternalMarshaller internal) {
-      return from(bytes, 0, internal);
+   public static BytesObjectInput from(byte[] bytes,
+         InternalExternalizerTable extTable, StreamingMarshaller external) {
+      return from(bytes, 0, extTable, external);
    }
 
-   static BytesObjectInput from(byte[] bytes, int offset, InternalMarshaller internal) {
-      return new BytesObjectInput(bytes, offset, internal);
+   public static BytesObjectInput from(byte[] bytes, int offset,
+         InternalExternalizerTable extTable, StreamingMarshaller external) {
+      return new BytesObjectInput(bytes, offset, extTable, external);
    }
 
    @Override
    public Object readObject() throws ClassNotFoundException, IOException {
-      Externalizer<Object> ext = internal.externalizers.findReadExternalizer(this);
+      Externalizer<Object> ext = extTable.findReadExternalizer(this);
       if (ext != null)
          return ext.readObject(this);
       else {
          try {
-            return internal.external.objectFromObjectStream(this);
+            return external.objectFromObjectStream(this);
          } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return null;
@@ -82,12 +89,13 @@ final class BytesObjectInput implements ObjectInput, PositionalBuffer.Input {
 
    @Override
    public void readFully(byte[] b) {
-      internal.enc.decodeBytes(b, 0, b.length, this);
+      readFully(b, 0, b.length);
    }
 
    @Override
    public void readFully(byte[] b, int off, int len) {
-      internal.enc.decodeBytes(b, off, len, this);
+      System.arraycopy(bytes, pos, b, off, len);
+      pos += len;
    }
 
    @Override
@@ -97,12 +105,12 @@ final class BytesObjectInput implements ObjectInput, PositionalBuffer.Input {
 
    @Override
    public boolean readBoolean() {
-      return internal.enc.decodeBoolean(this);
+      return readByte() != 0;
    }
 
    @Override
    public byte readByte() {
-      return internal.enc.decodeByte(this);
+      return bytes[pos++];
    }
 
    @Override
@@ -112,37 +120,48 @@ final class BytesObjectInput implements ObjectInput, PositionalBuffer.Input {
 
    @Override
    public short readShort() {
-      return internal.enc.decodeShort(this);
+      short v = (short) (bytes[pos] << 8 | (bytes[pos + 1] & 0xff));
+      pos += 2;
+      return v;
    }
 
    @Override
    public int readUnsignedShort() {
-      return internal.enc.decodeUnsignedShort(this);
+      int v = (bytes[pos] & 0xff) << 8 | (bytes[pos + 1] & 0xff);
+      pos += 2;
+      return v;
    }
 
    @Override
    public char readChar() {
-      return internal.enc.decodeChar(this);
+      char v = (char) (bytes[pos] << 8 | (bytes[pos + 1] & 0xff));
+      pos += 2;
+      return v;
    }
 
    @Override
    public int readInt() {
-      return internal.enc.decodeInt(this);
+      int v = bytes[pos] << 24
+            | (bytes[pos + 1] & 0xff) << 16
+            | (bytes[pos + 2] & 0xff) << 8
+            | (bytes[pos + 3] & 0xff);
+      pos = pos + 4;
+      return v;
    }
 
    @Override
    public long readLong() {
-      return internal.enc.decodeLong(this);
+      return (long) readInt() << 32L | (long) readInt() & 0xffffffffL;
    }
 
    @Override
    public float readFloat() {
-      return internal.enc.decodeFloat(this);
+      return Float.intBitsToFloat(readInt());
    }
 
    @Override
    public double readDouble() {
-      return internal.enc.decodeDouble(this);
+      return Double.longBitsToDouble(readLong());
    }
 
    @Override
@@ -152,12 +171,98 @@ final class BytesObjectInput implements ObjectInput, PositionalBuffer.Input {
 
    @Override
    public String readUTF() {
-      return internal.enc.decodeStringUtf8(this);
+      int utflen = readInt();
+
+      byte[] bytearr = bytes;
+      char[] chararr = new char[utflen];
+
+      utflen = pos + utflen;
+      int c, char2, char3;
+      int count = pos;
+      int chararr_count=0;
+
+      while (count < utflen) {
+         c = (int) bytearr[count] & 0xff;
+         if (c > 127) break;
+         count++;
+         chararr[chararr_count++]=(char)c;
+      }
+
+      while (count < utflen) {
+         c = (int) bytearr[count] & 0xff;
+         switch (c >> 4) {
+            case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7:
+                    /* 0xxxxxxx*/
+               count++;
+               chararr[chararr_count++]=(char)c;
+               break;
+            case 12: case 13:
+                    /* 110x xxxx   10xx xxxx*/
+               count += 2;
+               if (count > utflen)
+                  throw new RuntimeException(
+                        "malformed input: partial character at end");
+               char2 = (int) bytearr[count-1];
+               if ((char2 & 0xC0) != 0x80)
+                  throw new RuntimeException(
+                        "malformed input around byte " + count);
+               chararr[chararr_count++]=(char)(((c & 0x1F) << 6) |
+                     (char2 & 0x3F));
+               break;
+            case 14:
+                    /* 1110 xxxx  10xx xxxx  10xx xxxx */
+               count += 3;
+               if (count > utflen)
+                  throw new RuntimeException(
+                        "malformed input: partial character at end");
+               char2 = (int) bytearr[count-2];
+               char3 = (int) bytearr[count-1];
+               if (((char2 & 0xC0) != 0x80) || ((char3 & 0xC0) != 0x80))
+                  throw new RuntimeException(
+                        "malformed input around byte " + (count-1));
+               chararr[chararr_count++]=(char)(((c     & 0x0F) << 12) |
+                     ((char2 & 0x3F) << 6)  |
+                     ((char3 & 0x3F) << 0));
+               break;
+            default:
+                    /* 10xx xxxx,  1111 xxxx */
+               throw new RuntimeException(
+                     "malformed input around byte " + count);
+         }
+      }
+
+      pos = count;
+
+      return new String(chararr, 0, chararr_count);
    }
 
    @Override
-   public void rewindPosition(int pos) {
-      internal.enc.decodeRewind(this, pos);
+   public void rewindPosition(int p) {
+      if (offset == 0)
+         pos = p;
+      else
+         pos = p + offset;
+   }
+
+   public String readString() {
+      byte mark = readByte();
+
+      switch(mark) {
+         case 0:
+            return ""; // empty string
+         case 1:
+            // small ascii
+            int size = readByte();
+            String str = new String(bytes, 0, pos, size);
+            pos += size;
+            return str;
+         case 2:
+            // large string
+            return readUTF();
+         case 3:
+         default:
+            throw new RuntimeException("Unknown marker(String). mark=" + mark);
+      }
    }
 
 }

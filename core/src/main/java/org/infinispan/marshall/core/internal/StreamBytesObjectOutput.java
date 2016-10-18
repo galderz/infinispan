@@ -4,12 +4,12 @@ import java.io.IOException;
 import java.io.ObjectOutput;
 import java.io.OutputStream;
 
-final class StreamBytesObjectOutput implements ObjectOutput {
+public final class StreamBytesObjectOutput implements ObjectOutput {
 
    final OutputStream stream;
    final BytesObjectOutput out;
 
-   StreamBytesObjectOutput(OutputStream stream, BytesObjectOutput out) {
+   public StreamBytesObjectOutput(OutputStream stream, BytesObjectOutput out) {
       this.stream = stream;
       this.out = out;
    }

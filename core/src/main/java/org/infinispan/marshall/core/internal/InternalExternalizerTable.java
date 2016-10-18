@@ -121,17 +121,12 @@ import org.infinispan.util.logging.LogFactory;
 import org.infinispan.xsite.statetransfer.XSiteState;
 import org.jboss.marshalling.util.IdentityIntMap;
 
-final class InternalExternalizerTable {
+public final class InternalExternalizerTable {
 
-   private static final Log log = LogFactory.getLog(InternalMarshaller.class);
+   private static final Log log = LogFactory.getLog(InternalExternalizerTable.class);
    private static final boolean trace = log.isTraceEnabled();
 
    private static final int NOT_FOUND = -1;
-
-   /**
-    * Encoding of the internal marshaller
-    */
-   private final Encoding enc;
 
    /**
     * Pairing between internally marshallable types and their numeric identifiers.
@@ -169,13 +164,12 @@ final class InternalExternalizerTable {
    private final GlobalComponentRegistry gcr;
    private final RemoteCommandsFactory cmdFactory;
 
-   InternalExternalizerTable(Encoding enc, GlobalComponentRegistry gcr, RemoteCommandsFactory cmdFactory) {
-      this.enc = enc;
+   public InternalExternalizerTable(GlobalComponentRegistry gcr, RemoteCommandsFactory cmdFactory) {
       this.gcr = gcr;
       this.cmdFactory = cmdFactory;
    }
 
-   void start() {
+   public void start() {
       loadInternalMarshallables();
       if (trace) {
          log.tracef("Internal externalizer ids: %s", internalExtIds);
@@ -197,7 +191,7 @@ final class InternalExternalizerTable {
       return sj.toString();
    }
 
-   void stop() {
+   public void stop() {
       internalExtIds.clear();
       predefExtIds.clear();
       Arrays.fill(internalExts, null);
@@ -205,7 +199,7 @@ final class InternalExternalizerTable {
       log.trace("Internal externalizer table has stopped");
    }
 
-   <T> Externalizer<T> findWriteExternalizer(Object obj, ObjectOutput out) throws IOException {
+   public <T> Externalizer<T> findWriteExternalizer(Object obj, ObjectOutput out) throws IOException {
       Class<?> clazz = obj == null ? null : obj.getClass();
       Externalizer<T> ext;
       if (clazz == null) {
@@ -253,7 +247,7 @@ final class InternalExternalizerTable {
       }
    }
 
-   <T> Externalizer<T> findReadExternalizer(ObjectInput in) {
+   public <T> Externalizer<T> findReadExternalizer(ObjectInput in) {
       try {
          // Check if primitive or non-primitive
          int type = in.readUnsignedByte();
@@ -282,7 +276,7 @@ final class InternalExternalizerTable {
       }
    }
 
-   MarshallableType marshallable(Object o) {
+   public MarshallableType marshallable(Object o) {
       Class<?> clazz = o.getClass();
       int extId = internalExtIds.get(clazz, NOT_FOUND);
       if (extId == 0) {
@@ -307,7 +301,7 @@ final class InternalExternalizerTable {
 
       int extId = 0;
 
-      extId = addInternalExternalizer(new PrimitiveExternalizer(enc), extId);
+      extId = addInternalExternalizer(new PrimitiveExternalizer(), extId);
 
       ReplicableCommandExternalizer ext = new ReplicableCommandExternalizer(cmdFactory, gcr);
       extId = addInternalExternalizer(ext, extId);
@@ -453,7 +447,7 @@ final class InternalExternalizerTable {
       }
    }
 
-   enum MarshallableType {
+   public enum MarshallableType {
 
       PRIMITIVE,
       INTERNAL,
@@ -461,7 +455,7 @@ final class InternalExternalizerTable {
       ANNOTATED,
       NOT_MARSHALLABLE;
 
-      boolean isMarshallable() {
+      public boolean isMarshallable() {
          return this != NOT_MARSHALLABLE;
       }
 

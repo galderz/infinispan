@@ -1,100 +1,252 @@
 package org.infinispan.marshall.core.internal;
 
-import org.infinispan.commons.marshall.Externalizer;
-
 import java.io.IOException;
 import java.io.ObjectOutput;
 
-final class BytesObjectOutput implements ObjectOutput, PositionalBuffer.Output {
+import org.infinispan.commons.io.ByteBuffer;
+import org.infinispan.commons.io.ByteBufferImpl;
+import org.infinispan.commons.marshall.Externalizer;
+import org.infinispan.commons.marshall.StreamingMarshaller;
 
-   final InternalMarshaller internal;
+public final class BytesObjectOutput implements ObjectOutput, PositionalBuffer.Output {
+
+   final InternalExternalizerTable extTable;
+   final StreamingMarshaller external;
 
    byte bytes[];
    int pos;
 
-   public BytesObjectOutput(int size, InternalMarshaller internal) {
+   public BytesObjectOutput(int size,
+         InternalExternalizerTable extTable, StreamingMarshaller external) {
       this.bytes = new byte[size];
-      this.internal = internal;
+      this.extTable = extTable;
+      this.external = external;
    }
 
    @Override
    public void writeObject(Object obj) throws IOException {
-      Externalizer<Object> ext = internal.externalizers.findWriteExternalizer(obj, this);
+      Externalizer<Object> ext = extTable.findWriteExternalizer(obj, this);
       if (ext != null) {
          ext.writeObject(this, obj);
       } else {
-         internal.external.objectToObjectStream(obj, this);
+         external.objectToObjectStream(obj, this);
       }
    }
 
    @Override
    public void write(int b) {
-      internal.enc.encodeByte(b, this);
+      writeByte(b);
    }
 
    @Override
    public void write(byte[] b) {
-      internal.enc.encodeBytes(b, 0, b.length, this);
+      final int len = b.length;
+      final int newcount = ensureCapacity(len);
+      System.arraycopy(b, 0, bytes, pos, len);
+      pos = newcount;
    }
 
    @Override
    public void write(byte[] b, int off, int len) {
-      internal.enc.encodeBytes(b, off, len, this);
+      final int newcount = ensureCapacity(len);
+      System.arraycopy(b, off, bytes, pos, len);
+      pos = newcount;
    }
 
    @Override
    public void writeBoolean(boolean v) {
-      internal.enc.encodeBoolean(v, this);
+      writeByte((byte) (v ? 1 : 0));
    }
 
    @Override
    public void writeByte(int v) {
-      internal.enc.encodeByte(v, this);
+      final int newcount = ensureCapacity(1);
+      bytes[pos] = (byte) v;
+      pos = newcount;
    }
 
    @Override
    public void writeShort(int v) {
-      internal.enc.encodeShort(v, this);
+      int newcount = ensureCapacity(2);
+      final int s = pos;
+      bytes[s] = (byte) (v >> 8);
+      bytes[s+1] = (byte) v;
+      pos = newcount;
    }
 
    @Override
    public void writeChar(int v) {
-      internal.enc.encodeChar(v, this);
+      int newcount = ensureCapacity(2);
+      final int s = pos;
+      bytes[s] = (byte) (v >> 8);
+      bytes[s+1] = (byte) v;
+      pos = newcount;
    }
 
    @Override
    public void writeInt(int v) {
-      internal.enc.encodeInt(v, this);
+      int newcount = ensureCapacity(4);
+      final int s = pos;
+      bytes[s] = (byte) (v >> 24);
+      bytes[s+1] = (byte) (v >> 16);
+      bytes[s+2] = (byte) (v >> 8);
+      bytes[s+3] = (byte) v;
+      pos = newcount;
    }
 
    @Override
    public void writeLong(long v) {
-      internal.enc.encodeLong(v, this);
+      int newcount = ensureCapacity(8);
+      final int s = pos;
+      bytes[s] = (byte) (v >> 56L);
+      bytes[s+1] = (byte) (v >> 48L);
+      bytes[s+2] = (byte) (v >> 40L);
+      bytes[s+3] = (byte) (v >> 32L);
+      bytes[s+4] = (byte) (v >> 24L);
+      bytes[s+5] = (byte) (v >> 16L);
+      bytes[s+6] = (byte) (v >> 8L);
+      bytes[s+7] = (byte) v;
+      pos = newcount;
    }
 
    @Override
    public void writeFloat(float v) {
-      internal.enc.encodeFloat(v, this);
+      final int bits = Float.floatToIntBits(v);
+      int newcount = ensureCapacity(4);
+      final int s = pos;
+      bytes[s] = (byte) (bits >> 24);
+      bytes[s+1] = (byte) (bits >> 16);
+      bytes[s+2] = (byte) (bits >> 8);
+      bytes[s+3] = (byte) bits;
+      pos = newcount;
    }
 
    @Override
    public void writeDouble(double v) {
-      internal.enc.encodeDouble(v, this);
+      final long bits = Double.doubleToLongBits(v);
+      int newcount = ensureCapacity(8);
+      final int s = pos;
+      bytes[s] = (byte) (bits >> 56L);
+      bytes[s+1] = (byte) (bits >> 48L);
+      bytes[s+2] = (byte) (bits >> 40L);
+      bytes[s+3] = (byte) (bits >> 32L);
+      bytes[s+4] = (byte) (bits >> 24L);
+      bytes[s+5] = (byte) (bits >> 16L);
+      bytes[s+6] = (byte) (bits >> 8L);
+      bytes[s+7] = (byte) bits;
+      pos = newcount;
    }
 
    @Override
    public void writeBytes(String s) {
-      internal.enc.encodeString(s, this);
+      writeString(s);
    }
 
    @Override
    public void writeChars(String s) {
-      internal.enc.encodeString(s, this);
+      writeString(s);
+   }
+
+   public void writeString(String s) {
+      int len;
+      if ((len = s.length()) == 0){
+         writeByte(0); // empty string
+      } else if (isAscii(s, len)) {
+         writeByte(1); // small ascii
+         writeByte(len);
+         int newcount = ensureCapacity(len);
+         s.getBytes(0, len, bytes, pos);
+         pos = newcount;
+      } else {
+         writeByte(2);  // large string
+         writeUTF(s);
+      }
+   }
+
+   private boolean isAscii(String s, int len) {
+      boolean ascii = false;
+      if(len < 64) {
+         ascii = true;
+         for (int i = 0; i < len; i++) {
+            if (s.charAt(i) > 127) {
+               ascii = false;
+               break;
+            }
+         }
+      }
+      return ascii;
    }
 
    @Override
    public void writeUTF(String s) {
-      internal.enc.encodeStringUtf8(s, this);
+      int startPos = skipIntSize();
+      int localPos = pos; /* avoid getfield opcode */
+      byte[] localBuf = bytes; /* avoid getfield opcode */
+
+      int strlen = s.length();
+      int c = 0;
+
+      int i=0;
+      for (i=0; i<strlen; i++) {
+         c = s.charAt(i);
+         if (!((c >= 0x0001) && (c <= 0x007F))) break;
+
+         if(localPos == bytes.length) {
+            pos = localPos;
+            ensureCapacity(1);
+            localBuf = bytes;
+         }
+         localBuf[localPos++] = (byte) c;
+      }
+
+      for (;i < strlen; i++){
+         c = s.charAt(i);
+         if ((c >= 0x0001) && (c <= 0x007F)) {
+            if(localPos == bytes.length) {
+               pos = localPos;
+               ensureCapacity(1);
+               localBuf = bytes;
+            }
+            localBuf[localPos++] = (byte) c;
+
+         } else if (c > 0x07FF) {
+            if(localPos+3 >= bytes.length) {
+               pos = localPos;
+               ensureCapacity(3);
+               localBuf = bytes;
+            }
+
+            localBuf[localPos++] = (byte) (0xE0 | ((c >> 12) & 0x0F));
+            localBuf[localPos++] = (byte) (0x80 | ((c >>  6) & 0x3F));
+            localBuf[localPos++] = (byte) (0x80 | ((c >>  0) & 0x3F));
+         } else {
+            if(localPos + 2 >= bytes.length) {
+               pos = localPos;
+               ensureCapacity(2);
+               localBuf = bytes;
+            }
+
+            localBuf[localPos++] = (byte) (0xC0 | ((c >>  6) & 0x1F));
+            localBuf[localPos++] = (byte) (0x80 | ((c >>  0) & 0x3F));
+         }
+      }
+      pos = localPos;
+      writeIntDirect(localPos - 4 - startPos, startPos);
+   }
+
+   private int skipIntSize() {
+      ensureCapacity(4);
+      int count = pos;
+      pos +=4;
+      return count;
+   }
+
+   private void writeIntDirect(int intValue, int index) {
+      byte[] buf = bytes; /* avoid getfield opcode */
+      buf[index] =   (byte) ((intValue >>> 24) & 0xFF);
+      buf[index+1] = (byte) ((intValue >>> 16) & 0xFF);
+      buf[index+2] = (byte) ((intValue >>>  8) & 0xFF);
+      buf[index+3] = (byte) ((intValue >>>  0) & 0xFF);
    }
 
    @Override
@@ -109,23 +261,65 @@ final class BytesObjectOutput implements ObjectOutput, PositionalBuffer.Output {
 
    @Override
    public int savePosition() {
-      return internal.enc.encodeEmpty(4, this);
+      int posBefore = pos;
+      pos = ensureCapacity(4);
+      return posBefore;
    }
 
    @Override
    public int writePosition(int offset) {
-      return internal.enc.encodePosition(this, offset);
+      bytes[offset] = (byte) (pos >> 24);
+      bytes[offset+1] = (byte) (pos >> 16);
+      bytes[offset+2] = (byte) (pos >> 8);
+      bytes[offset+3] = (byte) pos;
+      return pos;
    }
 
-//   ByteBuffer toByteBuffer() {
-//      return new ByteBufferImpl(bytes, 0, bytes.length);
-//   }
+   private int ensureCapacity(int len) {
+      int newcount = pos + len;
+      if (newcount > bytes.length) {
+         byte newbuf[] = new byte[getNewBufferSize(bytes.length, newcount)];
+         System.arraycopy(bytes, 0, newbuf, 0, pos);
+         bytes = newbuf;
+      }
+      return newcount;
+   }
 
-   byte[] toBytes() {
+   private static final int DEFAULT_DOUBLING_SIZE = 4 * 1024 * 1024; // 4MB
+
+   /**
+    * Gets the number of bytes to which the internal buffer should be resized.
+    * If not enough space, it doubles the size until the internal buffer
+    * reaches a configurable max size (default is 4MB), after which it begins
+    * growing the buffer in 25% increments.  This is intended to help prevent
+    * an OutOfMemoryError during a resize of a large buffer.
+    *
+    * @param curSize    the current number of bytes
+    * @param minNewSize the minimum number of bytes required
+    * @return the size to which the internal buffer should be resized
+    */
+   private int getNewBufferSize(int curSize, int minNewSize) {
+      if (curSize <= DEFAULT_DOUBLING_SIZE)
+         return Math.max(curSize << 1, minNewSize);
+      else
+         return Math.max(curSize + (curSize >> 2), minNewSize);
+   }
+
+   public int getPosition() {
+      return pos;
+   }
+
+   public byte[] toBytes() {
+      // Trim out unused bytes
       byte[] b = new byte[pos];
       System.arraycopy(bytes, 0, b, 0, pos);
       pos = 0;
       return b;
+   }
+
+   public ByteBuffer toByteBuffer() {
+      // No triming, just take position as length
+      return new ByteBufferImpl(bytes, 0, pos);
    }
 
 }

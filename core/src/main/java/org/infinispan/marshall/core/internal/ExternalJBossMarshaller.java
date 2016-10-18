@@ -19,7 +19,7 @@ import org.jboss.marshalling.ByteOutput;
 import org.jboss.marshalling.ObjectTable;
 import org.jboss.marshalling.Unmarshaller;
 
-final class ExternalJBossMarshaller implements StreamingMarshaller {
+public final class ExternalJBossMarshaller implements StreamingMarshaller {
 
    final MarshallableTypeHints marshallableTypeHints = new MarshallableTypeHints();
    final JBossMarshaller marshaller;
@@ -91,57 +91,57 @@ final class ExternalJBossMarshaller implements StreamingMarshaller {
 
    @Override
    public ObjectOutput startObjectOutput(OutputStream os, boolean isReentrant, int estimatedSize) throws IOException {
-      throw new RuntimeException("NYI");
+      throw new UnsupportedOperationException("No longer in use");
    }
 
    @Override
    public void finishObjectOutput(ObjectOutput oo) {
-      throw new RuntimeException("NYI");
+      throw new UnsupportedOperationException("No longer in use");
    }
 
    @Override
    public ObjectInput startObjectInput(InputStream is, boolean isReentrant) throws IOException {
-      throw new RuntimeException("NYI");
+      throw new UnsupportedOperationException("No longer in use");
    }
 
    @Override
    public void finishObjectInput(ObjectInput oi) {
-      throw new RuntimeException("NYI");
+      throw new UnsupportedOperationException("No longer in use");
    }
 
    @Override
    public Object objectFromInputStream(InputStream is) throws IOException, ClassNotFoundException {
-      throw new RuntimeException("NYI");
+      throw new UnsupportedOperationException("No longer in use");
    }
 
    @Override
    public byte[] objectToByteBuffer(Object obj, int estimatedSize) throws IOException, InterruptedException {
-      throw new RuntimeException("NYI");
+      throw new UnsupportedOperationException("No longer in use");
    }
 
    @Override
    public byte[] objectToByteBuffer(Object obj) throws IOException, InterruptedException {
-      throw new RuntimeException("NYI");
+      throw new UnsupportedOperationException("No longer in use");
    }
 
    @Override
    public Object objectFromByteBuffer(byte[] buf) throws IOException, ClassNotFoundException {
-      throw new RuntimeException("NYI");
+      throw new UnsupportedOperationException("No longer in use");
    }
 
    @Override
    public Object objectFromByteBuffer(byte[] buf, int offset, int length) throws IOException, ClassNotFoundException {
-      throw new RuntimeException("NYI");
+      throw new UnsupportedOperationException("No longer in use");
    }
 
    @Override
    public ByteBuffer objectToBuffer(Object o) throws IOException, InterruptedException {
-      throw new RuntimeException("NYI");
+      throw new UnsupportedOperationException("No longer in use");
    }
 
    @Override
    public BufferSizePredictor getBufferSizePredictor(Object o) {
-      throw new RuntimeException("NYI");
+      throw new UnsupportedOperationException("No longer in use");
    }
 
    static final class JBossByteOutput extends OutputStream implements ByteOutput {
@@ -174,10 +174,9 @@ final class ExternalJBossMarshaller implements StreamingMarshaller {
          } catch (ArrayIndexOutOfBoundsException e) {
             // When JBoss Marshalling starts reading a stream, it buffers
             // the contents, so it'll try as read as much as it can, so it
-            // can end up reading too far, in which case launder the exception
-            // into an IOException so that reading can stop without causing
-            // issues.
-            throw new EOFException();
+            // can end up reading too far, in which case return -1 to signal
+            // that the end of the stream has been reached
+            return -1;
          }
       }
 
