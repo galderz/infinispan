@@ -60,7 +60,6 @@ public class NaturalIdInvalidationTest extends DualNodeTest {
 	}
 
 	@Test
-	@Ignore("Randomly failing on CI - ISPN-8114")
 	public void testAll() throws Exception {
       log.infof("*** %s", name.getMethodName());
 
