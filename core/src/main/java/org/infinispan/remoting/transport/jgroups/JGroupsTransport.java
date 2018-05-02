@@ -312,28 +312,33 @@ public class JGroupsTransport implements Transport {
       boolean rsvp = isRsvpCommand(command);
       Map<XSiteBackup, Future<Response>> syncBackupCalls = new HashMap<>(backups.size());
       for (XSiteBackup xsb : backups) {
-         Address recipient = JGroupsAddressCache.fromJGroupsAddress(new SiteMaster(xsb.getSiteName()));
-         if (xsb.isSync()) {
-            long timeout = xsb.getTimeout();
-            long requestId = requests.newRequestId();
-            logRequest(requestId, command, recipient);
-            SingleSiteRequest<Response> request =
+         final String siteName = xsb.getSiteName();
+         Address recipient = JGroupsAddressCache.fromJGroupsAddress(new SiteMaster(siteName));
+         if (sitesView.contains(siteName)) {
+            if (xsb.isSync()) {
+               long timeout = xsb.getTimeout();
+               long requestId = requests.newRequestId();
+               logRequest(requestId, command, recipient);
+               SingleSiteRequest<Response> request =
                   new SingleSiteRequest<>(PassthroughSingleResponseCollector.INSTANCE, requestId, requests,
-                                          xsb.getSiteName());
-            addRequest(request);
+                     siteName);
+               addRequest(request);
 
-            try {
-               sendCommand(recipient, command, request.getRequestId(), DeliverOrder.NONE, rsvp, false, false);
-               if (timeout > 0) {
-                  request.setTimeout(timeoutExecutor, timeout, TimeUnit.MILLISECONDS);
+               try {
+                  sendCommand(recipient, command, request.getRequestId(), DeliverOrder.NONE, rsvp, false, false);
+                  if (timeout > 0) {
+                     request.setTimeout(timeoutExecutor, timeout, TimeUnit.MILLISECONDS);
+                  }
+               } catch (Throwable t) {
+                  request.cancel(true);
+                  throw t;
                }
-            } catch (Throwable t) {
-               request.cancel(true);
-               throw t;
+               syncBackupCalls.put(xsb, request);
+            } else {
+               sendCommand(recipient, command, Request.NO_REQUEST_ID, DeliverOrder.PER_SENDER, false, false, false);
             }
-            syncBackupCalls.put(xsb, request);
          } else {
-            sendCommand(recipient, command, Request.NO_REQUEST_ID, DeliverOrder.PER_SENDER, false, false, false);
+            log.debugf("Site '%s' not part of sites view=%s, don't send", siteName, sitesView);
          }
       }
       return new JGroupsBackupResponse(syncBackupCalls, timeService);

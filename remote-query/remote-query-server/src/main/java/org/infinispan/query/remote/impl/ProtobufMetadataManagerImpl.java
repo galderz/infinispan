@@ -150,12 +150,8 @@ public final class ProtobufMetadataManagerImpl implements ProtobufMetadataManage
                .addBackup()
                .site(siteName)
                .strategy(BackupConfiguration.BackupStrategy.SYNC)
-               .replicationTimeout(120_000)
+               .replicationTimeout(30_000)
                .backupFailurePolicy(BackupFailurePolicy.FAIL);
-               // TODO: Should be SYNC (with timeout and FAIL backup failure policy) but does not work: ISPN-9113
-               .strategy(BackupConfiguration.BackupStrategy.ASYNC)
-               //.replicationTimeout(120_000)
-               .backupFailurePolicy(BackupFailurePolicy.WARN);
          });
 
       return cfg;
