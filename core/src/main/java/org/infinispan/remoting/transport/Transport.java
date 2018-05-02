@@ -30,6 +30,7 @@ import org.infinispan.util.concurrent.CompletableFutures;
 import org.infinispan.util.logging.Log;
 import org.infinispan.xsite.XSiteBackup;
 import org.infinispan.xsite.XSiteReplicateCommand;
+import org.jgroups.protocols.relay.RouteStatusListener;
 
 /**
  * An interface that provides a communication link with remote caches.  Also allows remote caches to invoke commands on
@@ -177,6 +178,8 @@ public interface Transport extends Lifecycle {
 
 
    BackupResponse backupRemotely(Collection<XSiteBackup> backups, XSiteReplicateCommand rpcCommand) throws Exception;
+
+   default void addUserXSiteViewListener(RouteStatusListener listener) {}
 
    /**
     * @return true if the current Channel is the coordinator of the cluster.

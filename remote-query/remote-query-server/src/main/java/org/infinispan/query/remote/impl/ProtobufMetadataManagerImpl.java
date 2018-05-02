@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.management.MBeanException;
@@ -24,6 +25,7 @@ import org.infinispan.configuration.cache.BackupFailurePolicy;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalConfiguration;
+import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.interceptors.locking.PessimisticLockingInterceptor;
 import org.infinispan.jmx.annotations.MBean;
@@ -44,11 +46,13 @@ import org.infinispan.query.remote.impl.indexing.IndexingMetadata;
 import org.infinispan.query.remote.impl.logging.Log;
 import org.infinispan.registry.InternalCacheRegistry;
 import org.infinispan.registry.InternalCacheRegistry.Flag;
+import org.infinispan.remoting.transport.Transport;
 import org.infinispan.security.AuthorizationPermission;
 import org.infinispan.security.impl.CacheRoleImpl;
 import org.infinispan.transaction.LockingMode;
 import org.infinispan.transaction.TransactionMode;
 import org.infinispan.util.concurrent.IsolationLevel;
+import org.infinispan.xsite.XSiteAdminOperations;
 
 /**
  * @author anistor@redhat.com
@@ -99,6 +103,29 @@ public final class ProtobufMetadataManagerImpl implements ProtobufMetadataManage
       protobufSchemaCache = (Cache<String, String>) SecurityActions.getCache(cacheManager, PROTOBUF_METADATA_CACHE_NAME).getAdvancedCache().withEncoding(IdentityEncoder.class);
       // add stop dependency
       cacheManager.addCacheDependency(dependantCacheName, ProtobufMetadataManagerImpl.PROTOBUF_METADATA_CACHE_NAME);
+
+      // add xsite listener
+      final Transport transport = SecurityActions.getComponentRegistry(protobufSchemaCache.getAdvancedCache())
+         .getGlobalComponentRegistry()
+         .getComponent(Transport.class);
+
+      transport.addUserXSiteViewListener(new ProtobufMetadataXSiteListener(protobufSchemaCache));
+
+//
+//      // Start x-site state transfer
+//      XSiteAdminOperations xsiteAdminOperations =
+//         SecurityActions.getComponentRegistry(protobufSchemaCache.getAdvancedCache())
+//            .getComponent(XSiteAdminOperations.class);
+//
+//      final org.infinispan.configuration.cache.Configuration cfg =
+//         SecurityActions.getCacheConfiguration(protobufSchemaCache.getAdvancedCache());
+//
+//      cfg.sites().enabledBackups().stream()
+//         .map(BackupConfiguration::site)
+//         .forEach(siteName -> {
+//            log.debugf("Automatically pushing protobuf metadata state to '%s' site", siteName);
+//            xsiteAdminOperations.pushState(siteName);
+//         });
    }
 
    /**

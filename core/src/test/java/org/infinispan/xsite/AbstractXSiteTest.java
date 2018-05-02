@@ -38,7 +38,7 @@ import org.testng.annotations.BeforeMethod;
  */
 public abstract class AbstractXSiteTest extends AbstractCacheTest {
 
-   List<TestSite> sites = new ArrayList<>();
+   public List<TestSite> sites = new ArrayList<>();
    private Map<String, Integer> siteName2index = new HashMap<>();
 
    @BeforeMethod(alwaysRun = true) // run even for tests in the unstable group
@@ -212,7 +212,7 @@ public abstract class AbstractXSiteTest extends AbstractCacheTest {
    }
 
    public static class TestSite {
-      protected List<EmbeddedCacheManager> cacheManagers = new ArrayList<>();
+      public List<EmbeddedCacheManager> cacheManagers = new ArrayList<>();
       private final String siteName;
       private final int siteIndex;
 

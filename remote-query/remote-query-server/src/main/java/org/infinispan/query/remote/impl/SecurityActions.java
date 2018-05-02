@@ -6,9 +6,11 @@ import java.security.PrivilegedAction;
 import org.infinispan.AdvancedCache;
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.security.AuthorizationManager;
 import org.infinispan.security.Security;
+import org.infinispan.security.actions.GetCacheComponentRegistryAction;
 
 /**
  * SecurityActions for the org.infinispan.query.remote.impl package. Do not move and do not change class and method
@@ -42,4 +44,10 @@ final class SecurityActions {
    static <K, V> Cache<K, V> getCache(EmbeddedCacheManager cacheManager, String cacheName) {
       return doPrivileged(() -> cacheManager.getCache(cacheName));
    }
+
+   static ComponentRegistry getComponentRegistry(final AdvancedCache<?, ?> cache) {
+      GetCacheComponentRegistryAction action = new GetCacheComponentRegistryAction(cache);
+      return doPrivileged(action);
+   }
+
 }

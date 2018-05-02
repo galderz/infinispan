@@ -172,6 +172,7 @@ public class JGroupsTransport implements Transport {
    private boolean globalStatsEnabled;
    private MBeanServer mbeanServer;
    private String domain;
+   private RouteStatusListener userXSiteViewListener;
 
    /**
     * This form is used when the transport is created by an external source and passed in to the
@@ -445,6 +446,11 @@ public class JGroupsTransport implements Transport {
             }
          }
       }
+   }
+
+   @Override
+   public void addUserXSiteViewListener(RouteStatusListener listener) {
+      this.userXSiteViewListener = listener;
    }
 
    private void setXSiteViewListener(RouteStatusListener listener) {
@@ -1372,6 +1378,8 @@ public class JGroupsTransport implements Transport {
       @Override
       public void sitesUp(String... sites) {
          updateSitesView(Arrays.asList(sites), Collections.emptyList());
+         if (userXSiteViewListener != null && isCoordinator())
+            userXSiteViewListener.sitesUp(sites);
       }
 
       @Override
