@@ -149,9 +149,12 @@ public final class ProtobufMetadataManagerImpl implements ProtobufMetadataManage
             cfg.sites()
                .addBackup()
                .site(siteName)
-               .strategy(BackupConfiguration.BackupStrategy.SYNC)
-               .replicationTimeout(30_000)
-               .backupFailurePolicy(BackupFailurePolicy.FAIL);
+               // TODO Workaround for ISPN-9113, should be SYNC
+               .strategy(BackupConfiguration.BackupStrategy.ASYNC);
+            
+               // .strategy(BackupConfiguration.BackupStrategy.SYNC)
+               // .replicationTimeout(30_000)
+               // .backupFailurePolicy(BackupFailurePolicy.FAIL);
          });
 
       return cfg;
