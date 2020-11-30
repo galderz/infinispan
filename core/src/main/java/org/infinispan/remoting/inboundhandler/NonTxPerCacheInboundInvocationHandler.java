@@ -37,7 +37,6 @@ public class NonTxPerCacheInboundInvocationHandler extends BasePerCacheInboundIn
       LockListener {
 
    private static final Log log = LogFactory.getLog(NonTxPerCacheInboundInvocationHandler.class);
-   private final boolean trace = log.isTraceEnabled();
 
    private final CheckTopologyAction checkTopologyAction;
 
@@ -104,7 +103,7 @@ public class NonTxPerCacheInboundInvocationHandler extends BasePerCacheInboundIn
 
    @Override
    protected boolean isTraceEnabled() {
-      return trace;
+      return log.isTraceEnabled();
    }
 
    private ReadyAction createReadyAction(int topologyId, RemoteLockCommand command) {

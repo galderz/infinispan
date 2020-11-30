@@ -65,7 +65,6 @@ import io.reactivex.rxjava3.core.Flowable;
 public class StateProviderImpl implements StateProvider {
 
    private static final Log log = LogFactory.getLog(StateProviderImpl.class);
-   private final boolean trace = log.isTraceEnabled();
 
    @ComponentName(KnownComponentNames.CACHE_NAME)
    @Inject protected String cacheName;
@@ -134,7 +133,7 @@ public class StateProviderImpl implements StateProvider {
    @Stop(priority = 0)
    @Override
    public void stop() {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Shutting down StateProvider of cache %s on node %s", cacheName, rpcManager.getAddress());
       }
       // cancel all outbound transfers
@@ -155,7 +154,7 @@ public class StateProviderImpl implements StateProvider {
 
    public CompletionStage<List<TransactionInfo>> getTransactionsForSegments(Address destination, int requestTopologyId,
                                                                             IntSet segments) {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Received request for transactions from node %s for cache %s, topology id %d, segments %s",
                     destination, cacheName, requestTopologyId, segments);
       }
@@ -180,7 +179,7 @@ public class StateProviderImpl implements StateProvider {
                       collectTransactionsToTransfer(destination, transactions, transactionTable.getLocalTransactions(),
                                                     segments,
                                                     topology);
-                      if (trace) {
+                      if (log.isTraceEnabled()) {
                          log.tracef("Found %d transaction(s) to transfer", transactions.size());
                       }
                    }
@@ -205,7 +204,7 @@ public class StateProviderImpl implements StateProvider {
             log.debugf("Segments were requested by node %s with topology %d, older than the local topology (%d)",
                        destination, requestTopologyId, currentTopologyId);
       } else if (requestTopologyId > currentTopologyId) {
-         if (trace) {
+         if (log.isTraceEnabled()) {
             log.tracef("%s were requested by node %s with topology %d, greater than the local " +
                        "topology (%d). Waiting for topology %d to be installed locally.",
                        isReqForTransactions ? "Transactions" : "Segments", destination,
@@ -234,7 +233,7 @@ public class StateProviderImpl implements StateProvider {
          // Also skip transactions that originates after state transfer starts.
          if (tx.getTopologyId() == topologyId ||
                (transactionOriginatorChecker.isOriginatorMissing(gtx, members))) {
-            if (trace) log.tracef("Skipping transaction %s as it was started in the current topology or by a leaver", tx);
+            if (log.isTraceEnabled()) log.tracef("Skipping transaction %s as it was started in the current topology or by a leaver", tx);
             continue;
          }
 
@@ -250,11 +249,11 @@ public class StateProviderImpl implements StateProvider {
          tx.forEachLock(lockFilter);
          tx.forEachBackupLock(lockFilter);
          if (filteredLockedKeys.isEmpty()) {
-            if (trace) log.tracef("Skipping transaction %s because the state requestor %s doesn't own any key",
+            if (log.isTraceEnabled()) log.tracef("Skipping transaction %s because the state requestor %s doesn't own any key",
                     tx, destination);
             continue;
          }
-         if (trace) log.tracef("Sending transaction %s to new owner %s", tx, destination);
+         if (log.isTraceEnabled()) log.tracef("Sending transaction %s to new owner %s", tx, destination);
          List<WriteCommand> txModifications = tx.getModifications();
          WriteCommand[] modifications = null;
          if (!txModifications.isEmpty()) {
@@ -266,7 +265,7 @@ public class StateProviderImpl implements StateProvider {
          if(tx instanceof LocalTransaction) {
             LocalTransaction localTx = (LocalTransaction) tx;
             localTx.locksAcquired(Collections.singleton(destination));
-            if (trace) log.tracef("Adding affected node %s to transferred transaction %s (keys %s)", destination,
+            if (log.isTraceEnabled()) log.tracef("Adding affected node %s to transferred transaction %s (keys %s)", destination,
                   gtx, filteredLockedKeys);
          }
          transactionsToTransfer.add(new TransactionInfo(gtx, tx.getTopologyId(),
@@ -276,7 +275,7 @@ public class StateProviderImpl implements StateProvider {
 
    @Override
    public void startOutboundTransfer(Address destination, int requestTopologyId, IntSet segments, boolean applyState) {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Starting outbound transfer to node %s for cache %s, topology id %d, segments %s", destination,
                     cacheName, requestTopologyId, segments);
       }
@@ -310,7 +309,7 @@ public class StateProviderImpl implements StateProvider {
    }
 
    protected void addTransfer(OutboundTransferTask transferTask) {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Adding outbound transfer to %s for segments %s", transferTask.getDestination(),
                     transferTask.getSegments());
       }
@@ -323,7 +322,7 @@ public class StateProviderImpl implements StateProvider {
 
    @Override
    public void cancelOutboundTransfer(Address destination, int topologyId, IntSet segments) {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Cancelling outbound transfer to node %s for cache %s, topology id %d, segments %s", destination,
                     cacheName, topologyId, segments);
       }
@@ -355,7 +354,7 @@ public class StateProviderImpl implements StateProvider {
    }
 
    protected void onTaskCompletion(OutboundTransferTask transferTask) {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Removing %s outbound transfer of segments to %s for cache %s, segments %s",
                     transferTask.isCancelled() ? "cancelled" : "completed", transferTask.getDestination(),
                     cacheName, transferTask.getSegments());
@@ -367,7 +366,7 @@ public class StateProviderImpl implements StateProvider {
    protected void logError(OutboundTransferTask task, Throwable t) {
       if (task.isCancelled()) {
          // ignore eventual exceptions caused by cancellation or by the node stopping
-         if (trace) {
+         if (log.isTraceEnabled()) {
             log.tracef("Ignoring error in already cancelled transfer to node %s, segments %s",
                        task.getDestination(), task.getSegments());
          }

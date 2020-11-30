@@ -38,7 +38,6 @@ import org.infinispan.util.logging.LogFactory;
 public class PersistedCounterConfigurationStorage implements CounterConfigurationStorage {
 
    private static final Log log = LogFactory.getLog(PersistedCounterConfigurationStorage.class, Log.class);
-   private final boolean trace = log.isTraceEnabled();
    private final Map<String, CounterConfiguration> storage;
    private final CounterConfigurationSerializer serializer;
    private final CounterConfigurationParser parser;
@@ -129,7 +128,7 @@ public class PersistedCounterConfigurationStorage implements CounterConfiguratio
       File directory = new File(sharedDirectory);
       if (!directory.exists()) {
          boolean created = directory.mkdirs();
-         if (trace) {
+         if (log.isTraceEnabled()) {
             log.tracef("Shared directory created? %s", created);
          }
       }

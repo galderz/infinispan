@@ -19,7 +19,6 @@ import org.infinispan.util.logging.LogFactory;
 public class ExponentialBackOffImpl implements ExponentialBackOff {
 
    private static final Log log = LogFactory.getLog(ExponentialBackOffImpl.class);
-   private final boolean trace = log.isTraceEnabled();
 
    //TODO currently only used by IRAC. If required, make it configurable (those 4 constants) to cover other uses cases.
    //multiplier value (2 == +100% per retry)
@@ -41,14 +40,14 @@ public class ExponentialBackOffImpl implements ExponentialBackOff {
    long nextBackOffMillis() {
       //public for unit test purposes.
       if (currentIntervalMillis >= MAX_INTERVAL_MILLIS) {
-         if (trace) {
+         if (log.isTraceEnabled()) {
             log.tracef("Next backoff time %s ms", MAX_INTERVAL_MILLIS);
          }
          return MAX_INTERVAL_MILLIS;
       }
       int randomIntervalMillis = getRandomValueFromInterval();
       incrementCurrentInterval();
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Next backoff time %s ms", randomIntervalMillis);
       }
       return Math.min(randomIntervalMillis, MAX_INTERVAL_MILLIS);
@@ -57,7 +56,7 @@ public class ExponentialBackOffImpl implements ExponentialBackOff {
    @Override
    public void backoffSleep() throws InterruptedException {
       long sleepTime = nextBackOffMillis();
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("backing-off for %s.", Util.prettyPrintTime(sleepTime));
       }
       Thread.sleep(sleepTime);

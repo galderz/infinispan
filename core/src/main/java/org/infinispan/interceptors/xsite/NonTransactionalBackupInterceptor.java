@@ -126,7 +126,7 @@ public class NonTransactionalBackupInterceptor extends BaseBackupInterceptor {
 
    private Object handleSingleKeyWriteReturn(InvocationContext ctx, DataWriteCommand dataWriteCommand, Object rv) {
       if (!dataWriteCommand.isSuccessful()) {
-         if (trace) {
+         if (log.isTraceEnabled()) {
             log.tracef("Command %s is not successful, not replicating", dataWriteCommand);
          }
          return rv;
@@ -153,7 +153,7 @@ public class NonTransactionalBackupInterceptor extends BaseBackupInterceptor {
    }
 
    private Object handleMultipleKeysWriteCommand(InvocationContext ctx, WriteCommand command) {
-      if (trace) log.tracef("Processing %s", command);
+      if (log.isTraceEnabled()) log.tracef("Processing %s", command);
       if (skipXSiteBackup(command)) {
          return invokeNext(ctx, command);
       }
@@ -161,9 +161,9 @@ public class NonTransactionalBackupInterceptor extends BaseBackupInterceptor {
    }
 
    private Object handleMultipleKeysWriteReturn(InvocationContext ctx, WriteCommand writeCommand, Object rv) {
-      if (trace) log.tracef("Processing post %s", writeCommand);
+      if (log.isTraceEnabled()) log.tracef("Processing post %s", writeCommand);
       if (!writeCommand.isSuccessful()) {
-         if (trace) {
+         if (log.isTraceEnabled()) {
             log.tracef("Command %s is not successful, not replicating", writeCommand);
          }
          return rv;
@@ -176,7 +176,7 @@ public class NonTransactionalBackupInterceptor extends BaseBackupInterceptor {
             iracManager.trackUpdatedKey(key, writeCommand.getCommandInvocationId());
          }
          if (!info.isPrimary()) {
-            if (trace) {
+            if (log.isTraceEnabled()) {
                log.tracef("Not replicating write to key %s as the primary owner is %s", key, info.primary());
             }
             continue;

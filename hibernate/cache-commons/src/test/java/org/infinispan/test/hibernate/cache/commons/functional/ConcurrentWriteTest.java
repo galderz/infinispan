@@ -42,7 +42,6 @@ import static org.junit.Assert.assertNull;
  */
 public class ConcurrentWriteTest extends SingleNodeTest {
 	private static final InfinispanMessageLogger log = InfinispanMessageLogger.Provider.getLog( ConcurrentWriteTest.class );
-	private final boolean trace = log.isTraceEnabled();
 	/**
 	 * when USER_COUNT==1, tests pass, when >4 tests fail
 	 */
@@ -349,36 +348,36 @@ public class ConcurrentWriteTest extends SingleNodeTest {
 			try {
 				for ( int i = 0; i < ITERATION_COUNT && !TERMINATE_ALL_USERS; i++ ) {
 					contactExists();
-					if ( trace ) {
+					if ( log.isTraceEnabled() ) {
 						log.trace( "Add contact for customer " + customerId );
 					}
 					addContact( customerId );
-					if ( trace ) {
+					if ( log.isTraceEnabled() ) {
 						log.trace( "Added contact" );
 					}
 					thinkRandomTime();
 					contactExists();
 					thinkRandomTime();
-					if ( trace ) {
+					if ( log.isTraceEnabled() ) {
 						log.trace( "Read all customers' first contact" );
 					}
 					// read everyone's contacts
 					readEveryonesFirstContact();
-					if ( trace ) {
+					if ( log.isTraceEnabled() ) {
 						log.trace( "Read completed" );
 					}
 					thinkRandomTime();
-					if ( trace ) {
+					if ( log.isTraceEnabled() ) {
 						log.trace( "Remove contact of customer" + customerId );
 					}
 					removeContact( customerId );
-					if ( trace ) {
+					if ( log.isTraceEnabled() ) {
 						log.trace( "Removed contact" );
 					}
 					contactExists();
 					thinkRandomTime();
 					++completedIterations;
-					if ( trace ) {
+					if ( log.isTraceEnabled() ) {
 						log.tracef( "Iteration completed %d", completedIterations );
 					}
 				}

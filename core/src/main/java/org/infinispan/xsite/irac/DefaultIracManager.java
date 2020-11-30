@@ -76,7 +76,6 @@ import org.infinispan.xsite.status.TakeOfflineManager;
 public class DefaultIracManager implements IracManager, Runnable {
 
    private static final Log log = LogFactory.getLog(DefaultIracManager.class);
-   private final boolean trace = log.isTraceEnabled();
 
    @Inject RpcManager rpcManager;
    @Inject Configuration config;
@@ -124,7 +123,7 @@ public class DefaultIracManager implements IracManager, Runnable {
       transport.checkCrossSiteAvailable();
       String localSiteName = transport.localSiteName();
       asyncBackups = asyncBackups(config, localSiteName);
-      if (trace) {
+      if (log.isTraceEnabled()) {
          String b = asyncBackups.stream().map(XSiteBackup::getSiteName).collect(Collectors.joining(", "));
          log.tracef("Async remote sites found: %s", b);
       }
@@ -154,7 +153,7 @@ public class DefaultIracManager implements IracManager, Runnable {
 
    @Override
    public void trackUpdatedKey(Object key, Object lockOwner) {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Tracking key for %s: %s", lockOwner, key);
       }
       updatedKeys.put(key, lockOwner);
@@ -163,7 +162,7 @@ public class DefaultIracManager implements IracManager, Runnable {
 
    @Override
    public <K> void trackUpdatedKeys(Collection<K> keys, Object lockOwner) {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Tracking keys for %s: %s", lockOwner, keys);
       }
       if (keys.isEmpty()) {
@@ -176,7 +175,7 @@ public class DefaultIracManager implements IracManager, Runnable {
    @Override
    public void trackKeysFromTransaction(Stream<WriteCommand> modifications, GlobalTransaction lockOwner) {
       keysFromMods(modifications).forEach(key -> {
-         if (trace) {
+         if (log.isTraceEnabled()) {
             log.tracef("Tracking key for %s: %s", lockOwner, key);
          }
          updatedKeys.put(key, lockOwner);
@@ -186,7 +185,7 @@ public class DefaultIracManager implements IracManager, Runnable {
 
    @Override
    public void trackClear() {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.trace("Tracking clear request");
       }
       hasClear = true;
@@ -198,14 +197,14 @@ public class DefaultIracManager implements IracManager, Runnable {
    public void cleanupKey(Object key, Object lockOwner, IracMetadata tombstone) {
       boolean removed = updatedKeys.remove(key, lockOwner);
       iracVersionGenerator.removeTombstone(key, tombstone);
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Removing key '%s'. LockOwner='%s', removed=%s", key, lockOwner, removed);
       }
    }
 
    @Override
    public void onTopologyUpdate(CacheTopology oldCacheTopology, CacheTopology newCacheTopology) {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.trace("[IRAC] Topology Updated. Checking pending keys.");
       }
       Address local = rpcManager.getAddress();
@@ -251,7 +250,7 @@ public class DefaultIracManager implements IracManager, Runnable {
 
    @Override
    public CompletionStage<Boolean> checkAndTrackExpiration(Object key) {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Checking remote backup sites to see if key %s has been touched recently", key);
       }
       IracTouchKeyCommand command = commandsFactory.buildIracTouchCommand(key);
@@ -261,22 +260,22 @@ public class DefaultIracManager implements IracManager, Runnable {
       AggregateCompletionStage<AtomicBoolean> collector = CompletionStages.aggregateCompletionStage(expired);
       for (XSiteBackup backup : asyncBackups) {
          if (takeOfflineManager.getSiteState(backup.getSiteName()) == SiteState.OFFLINE) {
-            if (trace) {
+            if (log.isTraceEnabled()) {
                log.tracef("Skipping %s as it is offline", backup.getSiteName());
             }
             continue; //backup is offline
          }
-         if (trace) {
+         if (log.isTraceEnabled()) {
             log.tracef("Sending irac touch key command to %s", backup);
          }
          XSiteResponse<Boolean> response = sendToRemoteSite(backup, command);
          collector.dependsOn(response.thenAccept(touched -> {
             if (touched) {
-               if (trace) {
+               if (log.isTraceEnabled()) {
                   log.tracef("Key %s was recently touched on a remote site %s", key, backup);
                }
                expired.set(false);
-            } else if (trace) {
+            } else if (log.isTraceEnabled()) {
                log.tracef("Entry %s was expired on remote site %s", key, backup);
             }
          }));
@@ -341,7 +340,7 @@ public class DefaultIracManager implements IracManager, Runnable {
          return ResponseResult.OK;
       } catch (ExecutionException e) {
          //can be ignored. it will be retried in the next round.
-         if (trace) {
+         if (log.isTraceEnabled()) {
             log.trace("IRAC update not successful.", e);
          }
          //if it fails, we release a permit so the thread can retry
@@ -354,7 +353,7 @@ public class DefaultIracManager implements IracManager, Runnable {
    }
 
    private void periodicSend() throws InterruptedException {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("[IRAC] Sending keys to remote site(s). Has clear? %s, keys: %s", hasClear, updatedKeys.keySet());
       }
       if (hasClear) {
@@ -396,7 +395,7 @@ public class DefaultIracManager implements IracManager, Runnable {
    }
 
    private void removeKey(Object key, int segmentId, Object lockOwner, IracMetadata tombstone) {
-      if (trace) {
+      if (log.isTraceEnabled()) {
          log.tracef("Replication completed for key '%s'. Lock Owner='%s'", key, lockOwner);
       }
       //removes the key from the "updated keys map" in all owners.
